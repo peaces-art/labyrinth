@@ -2,531 +2,415 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Labyrinth</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Labyrinth 3D</title>
 <style>
-/* ============================================================
-   🎨 DESIGN TOKENS — edit colors, sizes, fonts here
-============================================================ */
-:root {
-  --board-light:  #c8883a;
-  --board-mid:    #a06828;
-  --board-dark:   #7a4e1e;
-  --board-shadow: #3d2208;
-  --wall-color:   #7a4e1e;
-  --hole-color:   #0a0a0a;
-  --hole-rim:     #1a1a1a;
-  --ball-base:    #c45000;
-  --ball-mid:     #ff7b1a;
-  --ball-shine:   #ffcc88;
-  --ball-shadow:  #7a2a00;
-  --ball-size:    22px;
-  --ui-font:      'Georgia', serif;
-  --hud-color:    rgba(255,255,255,0.85);
-  --bg:           #0d0d0d;
-}
-
-/* ============================================================
-   🏗 LAYOUT & BASE
-============================================================ */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body {
-  width: 100%; height: 100%;
-  background: var(--bg);
-  overflow: hidden;
-  font-family: var(--ui-font);
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-#scene {
-  position: fixed; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  perspective: 700px;
-  perspective-origin: 50% 30%;
-}
-
-/* ============================================================
-   🪵 BOARD — tilting wooden plate
-============================================================ */
-#board-wrapper {
-  position: relative;
-  width: 360px; height: 360px;
-  transform-style: preserve-3d;
-}
-
-#board {
-  position: absolute; inset: 0;
-  background:
-    repeating-linear-gradient(88deg,
-      rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 1px,
-      transparent 1px, transparent 18px),
-    repeating-linear-gradient(2deg,
-      rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px,
-      transparent 1px, transparent 22px),
-    linear-gradient(160deg, var(--board-light) 0%, var(--board-mid) 55%, var(--board-dark) 100%);
-  border-radius: 4px;
-  box-shadow: 0 30px 80px rgba(0,0,0,0.8), 0 8px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.18);
-  transform-style: preserve-3d;
-}
-#board::before {
-  content: '';
-  position: absolute;
-  bottom: -14px; left: 2px; right: 2px; height: 14px;
-  background: linear-gradient(180deg, var(--board-dark) 0%, var(--board-shadow) 100%);
-  transform: rotateX(-90deg); transform-origin: top;
-  border-radius: 0 0 4px 4px;
-}
-
-/* ============================================================
-   🧱 MAZE WALLS
-============================================================ */
-.wall {
-  position: absolute;
-  background: linear-gradient(180deg, var(--board-mid) 0%, var(--wall-color) 100%);
-  border-radius: 2px;
-  box-shadow: 0 8px 0 var(--board-shadow), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.3);
-}
-
-/* ============================================================
-   🕳 HOLE
-============================================================ */
-#hole {
-  position: absolute; border-radius: 50%;
-  background: radial-gradient(ellipse at 40% 35%, #222 0%, var(--hole-color) 60%, #000 100%);
-  box-shadow: 0 0 0 3px var(--hole-rim), inset 0 2px 8px rgba(0,0,0,1), 0 0 16px rgba(0,0,0,0.7);
-}
-
-/* ============================================================
-   🔮 BALL — metallic orange sphere
-============================================================ */
-#ball {
-  position: absolute;
-  width: var(--ball-size); height: var(--ball-size);
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%,
-    var(--ball-shine) 0%, var(--ball-mid) 35%, var(--ball-base) 65%, var(--ball-shadow) 100%);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.6), inset 0 -3px 6px rgba(0,0,0,0.3), inset 0 3px 4px rgba(255,200,120,0.35);
-  transform: translate(-50%,-50%) translateZ(12px);
-  pointer-events: none; z-index: 10;
-}
-#ball::after {
-  content: '';
-  position: absolute; top: 16%; left: 22%; width: 28%; height: 20%;
-  border-radius: 50%;
-  background: rgba(255,230,180,0.55);
-  filter: blur(2px);
-}
-
-/* ============================================================
-   🕹 DRAG OVERLAY — invisible; captures all pointer events
-============================================================ */
-#drag-zone {
-  position: fixed; inset: 0; z-index: 50;
-  cursor: grab;
-}
-#drag-zone.dragging { cursor: grabbing; }
-
-/* ============================================================
-   🖥 HUD
-============================================================ */
-#hud {
-  position: fixed; top: 18px; left: 0; right: 0;
-  display: flex; justify-content: center; gap: 24px;
-  z-index: 100; pointer-events: none;
-}
-.hud-pill {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.15);
-  color: var(--hud-color);
-  padding: 5px 16px; border-radius: 99px;
-  font-size: 13px; letter-spacing: 0.05em;
-  backdrop-filter: blur(8px);
-}
-
-/* ============================================================
-   💬 HINT
-============================================================ */
-#hint {
-  position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
-  color: rgba(255,255,255,0.38); font-size: 12px; letter-spacing: 0.1em;
-  pointer-events: none; z-index: 100;
-  transition: opacity 0.5s;
-}
-#hint.gone { opacity: 0; }
-
-/* ============================================================
-   🏆 WIN OVERLAY
-============================================================ */
-#win-overlay {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,0.78); z-index: 200;
-  align-items: center; justify-content: center;
-  flex-direction: column; gap: 18px;
-}
-#win-overlay.show { display: flex; }
-#win-overlay h1 {
-  color: var(--ball-mid); font-size: 2.8rem;
-  letter-spacing: 0.1em; text-shadow: 0 0 30px var(--ball-base);
-}
-#win-overlay p { color: #ccc; font-size: 1rem; }
-#restart-btn {
-  margin-top: 12px; padding: 12px 32px;
-  background: var(--ball-base); color: #fff; border: none;
-  border-radius: 8px; font-size: 1rem; font-family: var(--ui-font);
-  cursor: pointer; letter-spacing: 0.06em;
-  box-shadow: 0 4px 20px rgba(196,80,0,0.5); z-index: 201;
-}
-
-/* ============================================================
-   📱 GYRO BUTTON (iOS)
-============================================================ */
-#gyro-btn {
-  display: none; position: fixed; bottom: 70px; left: 50%;
-  transform: translateX(-50%);
-  padding: 12px 26px; background: var(--ball-base); color: #fff;
-  border: none; border-radius: 8px; font-size: 14px;
-  font-family: var(--ui-font); cursor: pointer; z-index: 300;
-  box-shadow: 0 4px 20px rgba(196,80,0,0.4);
-}
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #111; overflow: hidden; font-family: 'Courier New', monospace; }
+  canvas { display: block; }
+  #ui {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    color: #e8d5a3; text-align: center; pointer-events: none;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  }
+  #ui h1 { font-size: 1.4rem; letter-spacing: 0.3em; opacity: 0.85; }
+  #ui p { font-size: 0.75rem; opacity: 0.6; margin-top: 4px; letter-spacing: 0.1em; }
+  #tilt-display {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    color: #e8d5a3; font-size: 0.7rem; opacity: 0.5; letter-spacing: 0.1em;
+    pointer-events: none;
+  }
+  #win-msg {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    color: #ffd700; font-size: 2rem; letter-spacing: 0.3em;
+    text-shadow: 0 0 30px rgba(255,215,0,0.8);
+    display: none; pointer-events: none;
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 </style>
 </head>
 <body>
-
-<div id="drag-zone"></div>
-
-<div id="hud">
-  <div class="hud-pill">⏱ <span id="timer">0.0</span>s</div>
-  <div class="hud-pill">LABYRINTH</div>
+<div id="ui">
+  <h1>LABYRINTH</h1>
+  <p>ARROW KEYS / WASD — TILT THE BOARD</p>
 </div>
+<div id="tilt-display" id="tilt-display">TILT: X 0° / Z 0°</div>
+<div id="win-msg">🏆 IN THE HOLE!</div>
 
-<div id="hint">DRAG ANYWHERE TO TILT &nbsp;·&nbsp; ARROW KEYS ON DESKTOP</div>
-
-<div id="scene">
-  <div id="board-wrapper">
-    <div id="board"></div>
-  </div>
-</div>
-
-<div id="win-overlay">
-  <h1>SOLVED</h1>
-  <p id="win-time">Time: 0.0s</p>
-  <button id="restart-btn">Play Again</button>
-</div>
-
-<button id="gyro-btn">🔄 Enable Gyroscope</button>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-/* ============================================================
-   ⚙️ GAME CONSTANTS — tweak physics here
-============================================================ */
-const BOARD_PX   = 360;   // board size in px
-const BALL_R     = 11;    // ball radius — keep at half --ball-size
-const HOLE_R     = 20;    // goal hole radius
-const GRAVITY    = 0.38;  // acceleration per tilt degree per frame
-const FRICTION   = 0.977; // velocity damping (lower = more friction)
-const MAX_TILT   = 22;    // maximum board tilt in degrees
-const DRAG_SENS  = 0.30;  // px of drag → degrees of tilt
-const GYRO_SENS  = 0.85;  // gyroscope gain multiplier
+// ─── SCENE SETUP ────────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1008);
+scene.fog = new THREE.Fog(0x1a1008, 18, 35);
 
-/* ============================================================
-   🗺 MAZE WALLS — { x, y, w, h } in board-pixels (0–360)
-   Add/remove walls freely. Origin = top-left of board.
-============================================================ */
-const WALLS = [
-  // — Outer ring —
-  { x: 20, y: 20,  w: 320, h: 12 },  // top
-  { x: 20, y: 328, w: 320, h: 12 },  // bottom
-  { x: 20, y: 20,  w: 12, h: 320 },  // left
-  { x: 328,y: 20,  w: 12, h: 320 },  // right
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.physicallyCorrectLights = true;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
 
-  // — Middle ring (gap: top-right & bottom-left) —
-  { x: 60, y: 60,  w: 192, h: 12 },  // top (open right side)
-  { x: 60, y: 288, w: 228, h: 12 },  // bottom
-  { x: 60, y: 60,  w: 12, h: 240 },  // left
-  { x: 288,y: 72,  w: 12, h: 216 },  // right
+// ─── CAMERA ─────────────────────────────────────────────────────────────────
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+// Camera offset relative to ball (follows ball)
+const CAM_OFFSET = new THREE.Vector3(0, 7, 6);
 
-  // — Inner ring (gap: bottom-left) —
-  { x: 108,y: 108, w: 144, h: 12 },  // top
-  { x: 108,y: 108, w: 12, h: 132 },  // left
-  { x: 240,y: 108, w: 12, h: 144 },  // right
-  { x: 180,y: 240, w: 72,  h: 12 },  // bottom partial (gap on left)
-];
+// ─── LIGHTING ────────────────────────────────────────────────────────────────
+// Warm ambient
+const ambient = new THREE.AmbientLight(0xffeedd, 0.4);
+scene.add(ambient);
 
-/* ============================================================
-   🏗 BUILD DOM
-============================================================ */
-const boardEl   = document.getElementById('board');
-const boardWrap = document.getElementById('board-wrapper');
-const winEl     = document.getElementById('win-overlay');
-const winTime   = document.getElementById('win-time');
-const timerEl   = document.getElementById('timer');
-const dragZone  = document.getElementById('drag-zone');
-const hintEl    = document.getElementById('hint');
-const gyroBtn   = document.getElementById('gyro-btn');
+// Main overhead lamp (warm, casts shadows)
+const sunLight = new THREE.DirectionalLight(0xfff5e0, 2.5);
+sunLight.position.set(4, 10, 6);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = 2048;
+sunLight.shadow.mapSize.height = 2048;
+sunLight.shadow.camera.near = 0.5;
+sunLight.shadow.camera.far = 40;
+sunLight.shadow.camera.left = -10;
+sunLight.shadow.camera.right = 10;
+sunLight.shadow.camera.top = 10;
+sunLight.shadow.camera.bottom = -10;
+sunLight.shadow.bias = -0.001;
+scene.add(sunLight);
 
-WALLS.forEach(w => {
-  const el = document.createElement('div');
-  el.className = 'wall';
-  el.style.cssText = `left:${w.x}px;top:${w.y}px;width:${w.w}px;height:${w.h}px`;
-  boardEl.appendChild(el);
+// Cool fill light from opposite side
+const fillLight = new THREE.DirectionalLight(0xaac8ff, 0.6);
+fillLight.position.set(-5, 5, -4);
+scene.add(fillLight);
+
+// Rim light
+const rimLight = new THREE.PointLight(0xff9955, 1.5, 20);
+rimLight.position.set(0, 3, -6);
+scene.add(rimLight);
+
+// ─── TEXTURES ────────────────────────────────────────────────────────────────
+function makeWoodTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const ctx = c.getContext('2d');
+
+  // Base warm wood color
+  ctx.fillStyle = '#8B5E3C';
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Wood grain lines
+  for (let i = 0; i < 80; i++) {
+    const y = (i / 80) * 512;
+    const wave = Math.sin(i * 0.4) * 6;
+    ctx.beginPath();
+    ctx.moveTo(0, y + wave);
+    for (let x = 0; x < 512; x += 4) {
+      ctx.lineTo(x, y + Math.sin(x * 0.03 + i * 0.5) * 4 + wave);
+    }
+    const alpha = 0.08 + Math.random() * 0.12;
+    ctx.strokeStyle = `rgba(${i % 2 === 0 ? '60,30,10' : '180,120,60'},${alpha})`;
+    ctx.lineWidth = 1.5 + Math.random() * 2;
+    ctx.stroke();
+  }
+
+  // Knot
+  const grad = ctx.createRadialGradient(160, 200, 2, 160, 200, 28);
+  grad.addColorStop(0, 'rgba(50,25,10,0.7)');
+  grad.addColorStop(0.5, 'rgba(90,50,20,0.4)');
+  grad.addColorStop(1, 'rgba(139,94,60,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.ellipse(160, 200, 28, 18, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  return new THREE.CanvasTexture(c);
+}
+
+function makeMetalTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const ctx = c.getContext('2d');
+
+  const grad = ctx.createRadialGradient(100, 80, 5, 128, 128, 128);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.3, '#d8e8f0');
+  grad.addColorStop(0.7, '#7a9ab0');
+  grad.addColorStop(1, '#3a5060');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 256, 256);
+
+  // Brushed streaks
+  for (let i = 0; i < 40; i++) {
+    const y = Math.random() * 256;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(256, y + (Math.random() - 0.5) * 8);
+    ctx.strokeStyle = `rgba(255,255,255,${Math.random() * 0.06})`;
+    ctx.lineWidth = Math.random() * 2;
+    ctx.stroke();
+  }
+  return new THREE.CanvasTexture(c);
+}
+
+function makeWoodNormalTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#8080ff'; // flat normal (pointing up)
+  ctx.fillRect(0, 0, 512, 512);
+  for (let i = 0; i < 80; i++) {
+    const y = (i / 80) * 512;
+    ctx.beginPath();
+    for (let x = 0; x < 512; x++) {
+      ctx.lineTo(x, y + Math.sin(x * 0.03 + i * 0.5) * 3);
+    }
+    ctx.strokeStyle = `rgba(100,100,255,0.3)`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  return new THREE.CanvasTexture(c);
+}
+
+const woodTex = makeWoodTexture();
+woodTex.wrapS = woodTex.wrapT = THREE.RepeatWrapping;
+woodTex.repeat.set(2, 2);
+
+const metalTex = makeMetalTexture();
+const woodNormal = makeWoodNormalTexture();
+woodNormal.wrapS = woodNormal.wrapT = THREE.RepeatWrapping;
+woodNormal.repeat.set(2, 2);
+
+// ─── BOARD ───────────────────────────────────────────────────────────────────
+const BOARD_W = 10;
+const BOARD_H = 0.4;
+const BOARD_D = 10;
+
+const boardGroup = new THREE.Group();
+scene.add(boardGroup);
+
+// Floor
+const floorGeo = new THREE.BoxGeometry(BOARD_W, BOARD_H, BOARD_D);
+const floorMat = new THREE.MeshStandardMaterial({
+  map: woodTex,
+  normalMap: woodNormal,
+  normalScale: new THREE.Vector2(0.8, 0.8),
+  roughness: 0.75,
+  metalness: 0.05,
+});
+const floor = new THREE.Mesh(floorGeo, floorMat);
+floor.receiveShadow = true;
+floor.position.y = -BOARD_H / 2;
+boardGroup.add(floor);
+
+// Walls (4 sides)
+const wallMat = new THREE.MeshStandardMaterial({
+  map: woodTex,
+  normalMap: woodNormal,
+  normalScale: new THREE.Vector2(0.5, 0.5),
+  roughness: 0.8,
+  metalness: 0.02,
+  color: 0xc49a5a,
 });
 
-const holeEl = document.createElement('div');
-holeEl.id = 'hole';
-holeEl.style.cssText = `width:${HOLE_R*2}px;height:${HOLE_R*2}px;left:${180-HOLE_R}px;top:${180-HOLE_R}px`;
-boardEl.appendChild(holeEl);
-
-const ballEl = document.createElement('div');
-ballEl.id = 'ball';
-boardEl.appendChild(ballEl);
-
-/* ============================================================
-   🎮 STATE
-============================================================ */
-let bx = 300, by = 300, vx = 0, vy = 0;
-let tiltX = 0, tiltY = 0;
-let targetTX = 0, targetTY = 0;
-let won = false, animId;
-let startTime = null, elapsed = 0;
-let gyroActive = false;
-let hintHidden = false;
-
-/* ============================================================
-   🖱️ DRAG — drag anywhere on screen to tilt the board
-============================================================ */
-let isDragging = false;
-let dStartX = 0, dStartY = 0;
-let dBaseTX = 0, dBaseTY = 0;
-
-function hideHint() {
-  if (!hintHidden) { hintEl.classList.add('gone'); hintHidden = true; }
+function makeWall(w, h, d, x, y, z) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const mesh = new THREE.Mesh(geo, wallMat);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  boardGroup.add(mesh);
+  return mesh;
 }
 
-function onPointerDown(cx, cy) {
-  isDragging = true;
-  dStartX = cx; dStartY = cy;
-  dBaseTX = targetTX; dBaseTY = targetTY;
-  dragZone.classList.add('dragging');
-  hideHint();
-}
-function onPointerMove(cx, cy) {
-  if (!isDragging || gyroActive) return;
-  const dx = cx - dStartX, dy = cy - dStartY;
-  targetTY = Math.max(-MAX_TILT, Math.min(MAX_TILT, dBaseTY + dx * DRAG_SENS));
-  targetTX = Math.max(-MAX_TILT, Math.min(MAX_TILT, dBaseTX + dy * DRAG_SENS));
-}
-function onPointerUp() {
-  isDragging = false;
-  dragZone.classList.remove('dragging');
-}
+const WALL_H = 0.5;
+const WALL_T = 0.3;
+const HW = BOARD_W / 2;
+const HD = BOARD_D / 2;
 
-// Mouse
-dragZone.addEventListener('mousedown', e => onPointerDown(e.clientX, e.clientY));
-window.addEventListener('mousemove',   e => onPointerMove(e.clientX, e.clientY));
-window.addEventListener('mouseup',     onPointerUp);
+makeWall(BOARD_W, WALL_H, WALL_T, 0, WALL_H/2, -HD);   // back
+makeWall(BOARD_W, WALL_H, WALL_T, 0, WALL_H/2,  HD);   // front
+makeWall(WALL_T, WALL_H, BOARD_D, -HW, WALL_H/2, 0);   // left
+makeWall(WALL_T, WALL_H, BOARD_D,  HW, WALL_H/2, 0);   // right
 
-// Touch
-dragZone.addEventListener('touchstart', e => {
-  e.preventDefault();
-  onPointerDown(e.touches[0].clientX, e.touches[0].clientY);
-}, { passive: false });
-window.addEventListener('touchmove', e => {
-  e.preventDefault();
-  onPointerMove(e.touches[0].clientX, e.touches[0].clientY);
-}, { passive: false });
-window.addEventListener('touchend', onPointerUp);
+// ─── HOLE ────────────────────────────────────────────────────────────────────
+const HOLE_R = 0.42;
+const holePos = new THREE.Vector3(2.5, 0, 2.5); // goal position on board
 
-/* ============================================================
-   ⌨️ KEYBOARD
-============================================================ */
+// Dark circle to represent hole
+const holeGeo = new THREE.CircleGeometry(HOLE_R, 32);
+const holeMat = new THREE.MeshStandardMaterial({ color: 0x050302, roughness: 1, metalness: 0 });
+const holeMesh = new THREE.Mesh(holeGeo, holeMat);
+holeMesh.rotation.x = -Math.PI / 2;
+holeMesh.position.set(holePos.x, 0.01, holePos.z);
+boardGroup.add(holeMesh);
+
+// Hole ring
+const ringGeo = new THREE.TorusGeometry(HOLE_R, 0.04, 8, 32);
+const ringMat = new THREE.MeshStandardMaterial({ color: 0x1a1008, roughness: 0.9, metalness: 0.1 });
+const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+ringMesh.rotation.x = -Math.PI / 2;
+ringMesh.position.set(holePos.x, 0.02, holePos.z);
+boardGroup.add(ringMesh);
+
+// ─── BALL ────────────────────────────────────────────────────────────────────
+const BALL_R = 0.28;
+const ballGeo = new THREE.SphereGeometry(BALL_R, 32, 32);
+const ballMat = new THREE.MeshStandardMaterial({
+  map: metalTex,
+  roughness: 0.08,
+  metalness: 0.95,
+  envMapIntensity: 1.5,
+  color: 0xc8dde8,
+});
+const ball = new THREE.Mesh(ballGeo, ballMat);
+ball.castShadow = true;
+ball.position.set(-3, BALL_R, -3);
+boardGroup.add(ball);
+
+// Ball shadow (fake soft shadow disc)
+const shadowGeo = new THREE.CircleGeometry(BALL_R * 0.9, 24);
+const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 });
+const ballShadow = new THREE.Mesh(shadowGeo, shadowMat);
+ballShadow.rotation.x = -Math.PI / 2;
+ballShadow.position.y = 0.005;
+boardGroup.add(ballShadow);
+
+// ─── PHYSICS STATE ───────────────────────────────────────────────────────────
+const ballPos = new THREE.Vector3(-3, BALL_R, -3);
+const ballVel = new THREE.Vector3(0, 0, 0);
+let tiltX = 0; // board tilt around X axis (controls Z movement)
+let tiltZ = 0; // board tilt around Z axis (controls X movement)
+const MAX_TILT = 0.22; // radians
+const TILT_SPEED = 0.008;
+const GRAVITY = 9.8;
+const FRICTION = 0.985;
+let won = false;
+
+// ─── INPUT ───────────────────────────────────────────────────────────────────
 const keys = {};
-document.addEventListener('keydown', e => { keys[e.key] = true; hideHint(); });
-document.addEventListener('keyup',   e => { keys[e.key] = false; });
+window.addEventListener('keydown', e => { keys[e.code] = true; });
+window.addEventListener('keyup',   e => { keys[e.code] = false; });
 
-function applyKeys() {
-  if (gyroActive) return;
-  const spd = 18;
-  let kx = 0, ky = 0;
-  if (keys['ArrowLeft']  || keys['a'] || keys['A']) ky = -spd;
-  if (keys['ArrowRight'] || keys['d'] || keys['D']) ky =  spd;
-  if (keys['ArrowUp']    || keys['w'] || keys['W']) kx = -spd;
-  if (keys['ArrowDown']  || keys['s'] || keys['S']) kx =  spd;
-  if (kx !== 0) targetTX = kx;
-  if (ky !== 0) targetTY = ky;
-}
+// ─── RESIZE ──────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
-/* ============================================================
-   📱 GYROSCOPE
-============================================================ */
-function gyroHandler(e) {
-  if (e.beta == null) return;
-  gyroActive = true;
-  hideHint();
-  // beta = front/back (-180→180), gamma = left/right (-90→90)
-  // Subtract resting neutral angle (~35° forward for held phone)
-  let b = (e.beta  - 35) * GYRO_SENS;
-  let g =  e.gamma        * GYRO_SENS;
-  targetTX = Math.max(-MAX_TILT, Math.min(MAX_TILT, b));
-  targetTY = Math.max(-MAX_TILT, Math.min(MAX_TILT, g));
-}
+// ─── GAME LOOP ───────────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+const tiltDisplay = document.getElementById('tilt-display');
+const winMsg = document.getElementById('win-msg');
 
-function initGyro() {
-  if (typeof DeviceOrientationEvent === 'undefined') return;
-  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-    // iOS 13+ needs a user gesture
-    gyroBtn.style.display = 'block';
-    gyroBtn.addEventListener('click', () => {
-      DeviceOrientationEvent.requestPermission().then(res => {
-        if (res === 'granted') {
-          window.addEventListener('deviceorientation', gyroHandler);
-          gyroBtn.style.display = 'none';
-        }
-      }).catch(console.error);
-    });
-  } else {
-    // Android + other browsers — attach directly
-    window.addEventListener('deviceorientation', gyroHandler);
-  }
-}
-
-/* ============================================================
-   📳 HAPTIC FEEDBACK
-============================================================ */
-let lastWallVibe = 0;
-let rollTimer = null;
-
-function haptic(type) {
-  if (!navigator.vibrate) return;
-  if (type === 'win')  { navigator.vibrate([40,30,80,30,120]); return; }
-  if (type === 'wall') {
-    const now = Date.now();
-    if (now - lastWallVibe > 90) { navigator.vibrate(18); lastWallVibe = now; }
-  }
-}
-
-function updateRollHaptic(speed) {
-  if (!navigator.vibrate) return;
-  if (speed < 0.7) {
-    if (rollTimer) { clearInterval(rollTimer); rollTimer = null; }
-    return;
-  }
-  // Only reset interval on significant speed change
-  const interval = Math.max(55, 260 - speed * 16);
-  if (!rollTimer) {
-    rollTimer = setInterval(() => { if (!won) navigator.vibrate(5); }, interval);
-  }
-}
-
-/* ============================================================
-   🧱 COLLISION RESOLUTION
-============================================================ */
-function resolveWalls() {
-  let hit = false;
-  for (const w of WALLS) {
-    const cx = Math.max(w.x, Math.min(bx, w.x + w.w));
-    const cy = Math.max(w.y, Math.min(by, w.y + w.h));
-    const dx = bx - cx, dy = by - cy;
-    const d2 = dx*dx + dy*dy;
-    if (d2 < BALL_R * BALL_R) {
-      const dist = Math.sqrt(d2) || 0.01;
-      const nx = dx/dist, ny = dy/dist;
-      bx += nx * (BALL_R - dist);
-      by += ny * (BALL_R - dist);
-      const dot = vx*nx + vy*ny;
-      vx -= 1.5 * dot * nx;
-      vy -= 1.5 * dot * ny;
-      hit = true;
-    }
-  }
-  if (hit) haptic('wall');
-
-  // Board boundary
-  if (bx < BALL_R)            { bx = BALL_R;            vx =  Math.abs(vx)*0.4; haptic('wall'); }
-  if (bx > BOARD_PX - BALL_R) { bx = BOARD_PX - BALL_R; vx = -Math.abs(vx)*0.4; haptic('wall'); }
-  if (by < BALL_R)            { by = BALL_R;            vy =  Math.abs(vy)*0.4; haptic('wall'); }
-  if (by > BOARD_PX - BALL_R) { by = BOARD_PX - BALL_R; vy = -Math.abs(vy)*0.4; haptic('wall'); }
-}
-
-/* ============================================================
-   🔄 GAME LOOP
-============================================================ */
-function loop(ts) {
+function update(dt) {
   if (won) return;
-  animId = requestAnimationFrame(loop);
 
-  if (!startTime) startTime = ts;
-  elapsed = (ts - startTime) / 1000;
-  timerEl.textContent = elapsed.toFixed(1);
+  // Input → tilt
+  if (keys['ArrowUp']    || keys['KeyW']) tiltX = Math.max(tiltX - TILT_SPEED, -MAX_TILT);
+  if (keys['ArrowDown']  || keys['KeyS']) tiltX = Math.min(tiltX + TILT_SPEED,  MAX_TILT);
+  if (keys['ArrowLeft']  || keys['KeyA']) tiltZ = Math.min(tiltZ + TILT_SPEED,  MAX_TILT);
+  if (keys['ArrowRight'] || keys['KeyD']) tiltZ = Math.max(tiltZ - TILT_SPEED, -MAX_TILT);
 
-  // Input
-  applyKeys();
+  // Tilt spring-back when no input
+  if (!keys['ArrowUp'] && !keys['KeyW'] && !keys['ArrowDown'] && !keys['KeyS'])
+    tiltX *= 0.92;
+  if (!keys['ArrowLeft'] && !keys['KeyA'] && !keys['ArrowRight'] && !keys['KeyD'])
+    tiltZ *= 0.92;
 
-  // Return to flat when idle
-  if (!isDragging && !gyroActive) {
-    const anyKey = Object.values(keys).some(Boolean);
-    if (!anyKey) { targetTX *= 0.82; targetTY *= 0.82; }
-  }
+  // Gravity projected onto tilted plane → acceleration
+  const accelX = Math.sin(tiltZ) * GRAVITY;
+  const accelZ = Math.sin(tiltX) * GRAVITY;
 
-  // Smooth tilt
-  tiltX += (targetTX - tiltX) * 0.15;
-  tiltY += (targetTY - tiltY) * 0.15;
+  ballVel.x += accelX * dt;
+  ballVel.z += accelZ * dt;
+  ballVel.x *= FRICTION;
+  ballVel.z *= FRICTION;
 
-  // Board visual
-  boardWrap.style.transform = `rotateX(${-tiltX}deg) rotateY(${tiltY}deg)`;
+  ballPos.x += ballVel.x * dt;
+  ballPos.z += ballVel.z * dt;
 
-  // Physics
-  const r = Math.PI / 180;
-  vx += Math.sin(tiltY * r) * GRAVITY;
-  vy += Math.sin(tiltX * r) * GRAVITY;
-  vx *= FRICTION;
-  vy *= FRICTION;
-  bx += vx; by += vy;
+  // Board boundary collision (simple AABB)
+  const bx = HW - WALL_T / 2 - BALL_R;
+  const bz = HD - WALL_T / 2 - BALL_R;
+  if (ballPos.x > bx)  { ballPos.x = bx;  ballVel.x *= -0.4; }
+  if (ballPos.x < -bx) { ballPos.x = -bx; ballVel.x *= -0.4; }
+  if (ballPos.z > bz)  { ballPos.z = bz;  ballVel.z *= -0.4; }
+  if (ballPos.z < -bz) { ballPos.z = -bz; ballVel.z *= -0.4; }
 
-  resolveWalls();
-
-  // Win check
-  const dx = bx - 180, dy = by - 180;
-  if (dx*dx + dy*dy < (HOLE_R - 4) * (HOLE_R - 4)) {
+  // Check hole
+  const dx = ballPos.x - holePos.x;
+  const dz = ballPos.z - holePos.z;
+  if (Math.sqrt(dx*dx + dz*dz) < HOLE_R * 0.8) {
     won = true;
-    if (rollTimer) { clearInterval(rollTimer); rollTimer = null; }
-    haptic('win');
-    winTime.textContent = `Time: ${elapsed.toFixed(1)}s`;
-    winEl.classList.add('show');
-    return;
+    winMsg.style.display = 'block';
+    // Animate ball dropping
+    gsapBallDrop();
   }
 
-  // Render
-  ballEl.style.left = bx + 'px';
-  ballEl.style.top  = by + 'px';
+  // Roll the ball visually
+  const speed = ballVel.length();
+  if (speed > 0.001) {
+    ball.rotateOnWorldAxis(
+      new THREE.Vector3(-ballVel.z, 0, ballVel.x).normalize(),
+      (speed * dt) / BALL_R
+    );
+  }
 
-  const speed = Math.sqrt(vx*vx + vy*vy);
-  updateRollHaptic(speed);
+  // Update positions
+  ball.position.copy(ballPos);
+  ballShadow.position.x = ballPos.x;
+  ballShadow.position.z = ballPos.z;
 
-  // Squish in direction of motion
-  const squish = Math.min(1 + speed * 0.013, 1.15);
-  const angle  = speed > 0.3 ? Math.atan2(vy, vx) * 180 / Math.PI : 0;
-  ballEl.style.transform = `translate(-50%,-50%) translateZ(12px) rotate(${angle}deg) scaleX(${squish}) scaleY(${1/squish})`;
-  ballEl.style.boxShadow = `0 ${4+speed*.8}px ${6+speed}px rgba(0,0,0,0.65),inset 0 -3px 6px rgba(0,0,0,0.3),inset 0 3px 4px rgba(255,200,120,0.35)`;
+  // Board tilt
+  boardGroup.rotation.x = tiltX;
+  boardGroup.rotation.z = tiltZ;
+
+  // HUD
+  tiltDisplay.textContent =
+    `TILT  X ${(tiltX * 180 / Math.PI).toFixed(1)}°  /  Z ${(tiltZ * 180 / Math.PI).toFixed(1)}°`;
 }
 
-/* ============================================================
-   🎬 BOOT
-============================================================ */
-function startGame() {
-  won = false;
-  bx = 300; by = 300; vx = 0; vy = 0;
-  tiltX = 0; tiltY = 0; targetTX = 0; targetTY = 0;
-  startTime = null; elapsed = 0;
-  winEl.classList.remove('show');
-  cancelAnimationFrame(animId);
-  loop();
+let dropT = 0;
+function gsapBallDrop() {
+  // Simple drop animation without GSAP
+  const startY = ballPos.y;
+  const animate = () => {
+    dropT += 0.04;
+    ball.position.y = startY - dropT * dropT * 2;
+    ball.scale.setScalar(Math.max(0.01, 1 - dropT * 0.8));
+    if (ball.position.y > -2) requestAnimationFrame(animate);
+  };
+  animate();
 }
 
-initGyro();
-startGame();
-document.getElementById('restart-btn').addEventListener('click', startGame);
+// ─── CAMERA FOLLOW ───────────────────────────────────────────────────────────
+const camTarget = new THREE.Vector3();
+const camPos    = new THREE.Vector3();
+
+function updateCamera() {
+  // World position of ball (board is rotated so we need world coords)
+  const ballWorld = new THREE.Vector3();
+  ball.getWorldPosition(ballWorld);
+
+  // Smooth camera follow
+  camTarget.lerp(ballWorld, 0.08);
+  const desiredCamPos = camTarget.clone().add(CAM_OFFSET);
+  camera.position.lerp(desiredCamPos, 0.08);
+  camera.lookAt(camTarget);
+}
+
+// ─── RENDER LOOP ─────────────────────────────────────────────────────────────
+function render() {
+  requestAnimationFrame(render);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  update(dt);
+  updateCamera();
+  renderer.render(scene, camera);
+}
+
+render();
 </script>
 </body>
 </html>
