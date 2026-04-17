@@ -28,15 +28,24 @@
     animation: pulse 1s ease-in-out infinite;
   }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  #gyro-btn {
+    position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
+    background: rgba(232,213,163,0.15); border: 1px solid rgba(232,213,163,0.4);
+    color: #e8d5a3; font-family: 'Courier New', monospace; font-size: 0.75rem;
+    letter-spacing: 0.15em; padding: 10px 20px; border-radius: 4px;
+    cursor: pointer; display: none;
+  }
+  #gyro-btn:active { background: rgba(232,213,163,0.3); }
 </style>
 </head>
 <body>
 <div id="ui">
   <h1>LABYRINTH</h1>
-  <p>ARROW KEYS / WASD — TILT THE BOARD</p>
+  <p id="controls-hint">ARROW KEYS / WASD — TILT THE BOARD</p>
 </div>
 <div id="tilt-display" id="tilt-display">TILT: X 0° / Z 0°</div>
 <div id="win-msg">🏆 IN THE HOLE!</div>
+<button id="gyro-btn">TAP TO ENABLE GYROSCOPE</button>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -292,6 +301,77 @@ const keys = {};
 window.addEventListener('keydown', e => { keys[e.code] = true; });
 window.addEventListener('keyup',   e => { keys[e.code] = false; });
 
+// ─── GYROSCOPE ───────────────────────────────────────────────────────────────
+let gyroActive = false;
+let gyroBase = { beta: null, gamma: null }; // calibration baseline
+let gyroTiltX = 0;
+let gyroTiltZ = 0;
+const GYRO_SENSITIVITY = 0.006; // radians per degree of device tilt
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const gyroBtn = document.getElementById('gyro-btn');
+const controlsHint = document.getElementById('controls-hint');
+
+function onDeviceOrientation(e) {
+  if (e.beta === null || e.gamma === null) return;
+
+  // Calibrate on first reading
+  if (gyroBase.beta === null) {
+    gyroBase.beta  = e.beta;
+    gyroBase.gamma = e.gamma;
+  }
+
+  // Delta from baseline
+  let dBeta  = e.beta  - gyroBase.beta;   // forward/back tilt  → tiltX (Z motion)
+  let dGamma = e.gamma - gyroBase.gamma;  // left/right tilt    → tiltZ (X motion)
+
+  // Clamp to ±30 degrees input range then map to MAX_TILT
+  dBeta  = Math.max(-30, Math.min(30, dBeta));
+  dGamma = Math.max(-30, Math.min(30, dGamma));
+
+  gyroTiltX = (dBeta  / 30) * MAX_TILT;
+  gyroTiltZ = -(dGamma / 30) * MAX_TILT;
+}
+
+function enableGyro() {
+  // iOS 13+ requires explicit permission
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission()
+      .then(state => {
+        if (state === 'granted') {
+          window.addEventListener('deviceorientation', onDeviceOrientation, true);
+          gyroActive = true;
+          gyroBtn.style.display = 'none';
+          controlsHint.textContent = 'TILT YOUR DEVICE — TAP TO RECALIBRATE';
+          gyroBase = { beta: null, gamma: null }; // reset calibration
+        } else {
+          gyroBtn.textContent = 'PERMISSION DENIED — USE ARROW KEYS';
+        }
+      })
+      .catch(() => {
+        gyroBtn.textContent = 'GYRO UNAVAILABLE — USE ARROW KEYS';
+      });
+  } else {
+    // Android / older browsers — no permission needed
+    window.addEventListener('deviceorientation', onDeviceOrientation, true);
+    gyroActive = true;
+    gyroBtn.style.display = 'none';
+    controlsHint.textContent = 'TILT YOUR DEVICE — TAP TO RECALIBRATE';
+    gyroBase = { beta: null, gamma: null };
+  }
+}
+
+// Recalibrate on tap anywhere (after gyro is active)
+window.addEventListener('touchstart', () => {
+  if (gyroActive) gyroBase = { beta: null, gamma: null };
+}, { passive: true });
+
+if (isMobile) {
+  gyroBtn.style.display = 'block';
+  gyroBtn.addEventListener('click', enableGyro);
+  controlsHint.textContent = 'TAP THE BUTTON BELOW TO USE GYROSCOPE';
+}
+
 // ─── RESIZE ──────────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -308,16 +388,22 @@ function update(dt) {
   if (won) return;
 
   // Input → tilt
-  if (keys['ArrowUp']    || keys['KeyW']) tiltX = Math.max(tiltX - TILT_SPEED, -MAX_TILT);
-  if (keys['ArrowDown']  || keys['KeyS']) tiltX = Math.min(tiltX + TILT_SPEED,  MAX_TILT);
-  if (keys['ArrowLeft']  || keys['KeyA']) tiltZ = Math.min(tiltZ + TILT_SPEED,  MAX_TILT);
-  if (keys['ArrowRight'] || keys['KeyD']) tiltZ = Math.max(tiltZ - TILT_SPEED, -MAX_TILT);
+  if (gyroActive) {
+    // Smooth gyro tilt toward target
+    tiltX += (gyroTiltX - tiltX) * 0.15;
+    tiltZ += (gyroTiltZ - tiltZ) * 0.15;
+  } else {
+    if (keys['ArrowUp']    || keys['KeyW']) tiltX = Math.max(tiltX - TILT_SPEED, -MAX_TILT);
+    if (keys['ArrowDown']  || keys['KeyS']) tiltX = Math.min(tiltX + TILT_SPEED,  MAX_TILT);
+    if (keys['ArrowLeft']  || keys['KeyA']) tiltZ = Math.min(tiltZ + TILT_SPEED,  MAX_TILT);
+    if (keys['ArrowRight'] || keys['KeyD']) tiltZ = Math.max(tiltZ - TILT_SPEED, -MAX_TILT);
 
-  // Tilt spring-back when no input
-  if (!keys['ArrowUp'] && !keys['KeyW'] && !keys['ArrowDown'] && !keys['KeyS'])
-    tiltX *= 0.92;
-  if (!keys['ArrowLeft'] && !keys['KeyA'] && !keys['ArrowRight'] && !keys['KeyD'])
-    tiltZ *= 0.92;
+    // Tilt spring-back when no input
+    if (!keys['ArrowUp'] && !keys['KeyW'] && !keys['ArrowDown'] && !keys['KeyS'])
+      tiltX *= 0.92;
+    if (!keys['ArrowLeft'] && !keys['KeyA'] && !keys['ArrowRight'] && !keys['KeyD'])
+      tiltZ *= 0.92;
+  }
 
   // Gravity projected onto tilted plane → acceleration
   const accelX = Math.sin(tiltZ) * GRAVITY;
