@@ -2,939 +2,246 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Infinite Gallery — Tilt to Wander</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eclipse</title>
 <style>
   :root{
-    --walnut:#5b3a26;
-    --walnut-dark:#2c1c12;
-    --wall:#2a2530;
-    --wall-deep:#1c1720;
-    --brass:#b8894f;
-    --brass-bright:#d9ad72;
-    --parchment:#ece4d3;
-    --ivory:#f4efe3;
-    --ink:#161113;
+    --ink: #eef1fb;
+    --muted: #9aa4c7;
   }
-  *{box-sizing:border-box;}
+  *{ box-sizing:border-box; margin:0; padding:0; }
   html,body{
-    margin:0; padding:0; width:100%; height:100%;
-    overflow:hidden; background:var(--wall-deep);
-    font-family:'JetBrains Mono',monospace;
-    -webkit-user-select:none; user-select:none;
-    touch-action:none;
-    overscroll-behavior:none;
+    background:#04050b;
+    color:var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   }
-  #canvas-wrap{position:fixed; inset:0;}
-  canvas{display:block; width:100%; height:100%;}
 
-  /* ---------- Start / Plaque overlay ---------- */
-  #overlay{
-    position:fixed; inset:0; z-index:50;
-    display:flex; align-items:center; justify-content:center;
-    background:
-      radial-gradient(ellipse at 50% 30%, rgba(90,60,40,0.25), transparent 60%),
-      var(--wall-deep);
-    transition:opacity .7s ease, visibility .7s ease;
+  /* ---------- NAV ---------- */
+  header.site-nav{
+    position:absolute;
+    top:0; left:0; right:0;
+    z-index:10;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 2.2vw 4vw 0 4vw;
   }
-  #overlay.hidden{opacity:0; visibility:hidden; pointer-events:none;}
+  .logo{
+    font-size: 1.1rem;
+    letter-spacing: 0.3em;
+    font-weight:600;
+    color:var(--ink);
+    text-transform:uppercase;
+  }
+  nav.links{
+    display:flex;
+    gap:2.4rem;
+  }
+  nav.links a{
+    color: var(--muted);
+    text-decoration:none;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    transition: color .2s ease;
+  }
+  nav.links a:hover{ color: var(--ink); }
 
-  .plaque{
+  /* ---------- HERO ---------- */
+  .hero{
     position:relative;
-    width:min(440px, 88vw);
-    padding:38px 34px 30px;
+    width:100vw;
+    aspect-ratio: 2000 / 1418;
+    min-height: 340px;
+    overflow:hidden;
     background:
-      linear-gradient(180deg, #6b4630 0%, var(--walnut) 12%, var(--walnut) 88%, #3a2416 100%);
-    border-radius:6px;
+      radial-gradient(ellipse 90% 70% at 50% 22%, #0a0d1c 0%, #04050c 55%, #000000 100%);
+  }
+
+  /* soft corner vignette to match reference */
+  .hero::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background: radial-gradient(ellipse 75% 65% at 50% 18%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 75%, rgba(0,0,0,0.85) 100%);
+    pointer-events:none;
+    z-index:5;
+  }
+
+  /* giant limb / horizon circle */
+  .horizon{
+    position:absolute;
+    width:286.8vw;
+    height:286.8vw;
+    left:-93.4vw;
+    top:-258.8vw;
+    border-radius:50%;
+    background: linear-gradient(to bottom, #1b2140 0%, #232a4d 8%, #262d52 20%, #262c4d 100%);
     box-shadow:
-      0 0 0 1px rgba(0,0,0,.5),
-      0 30px 60px rgba(0,0,0,.55),
-      inset 0 0 40px rgba(0,0,0,.35),
-      inset 0 2px 0 rgba(255,255,255,.06);
-    text-align:center;
-  }
-  .plaque::before{
-    content:'';
-    position:absolute; inset:9px;
-    border:1px solid rgba(216,173,114,.35);
-    border-radius:3px;
-    pointer-events:none;
-  }
-  .plaque .screw{
-    position:absolute; width:7px; height:7px; border-radius:50%;
-    background:radial-gradient(circle at 35% 35%, #e6c88f, #8a6636 70%, #3a2712);
-    box-shadow:0 1px 2px rgba(0,0,0,.6);
-  }
-  .plaque .screw.tl{top:14px; left:14px;} .plaque .screw.tr{top:14px; right:14px;}
-  .plaque .screw.bl{bottom:14px; left:14px;} .plaque .screw.br{bottom:14px; right:14px;}
-
-  .eyebrow{
-    font-family:'JetBrains Mono',monospace;
-    font-size:10.5px; letter-spacing:.32em; text-transform:uppercase;
-    color:var(--brass-bright); opacity:.85; margin-bottom:10px;
-  }
-  .plaque h1{
-    font-family:'Cormorant Garamond', serif;
-    font-weight:600; font-style:normal;
-    font-size:clamp(30px,6vw,40px);
-    color:var(--ivory); margin:0 0 6px;
-    letter-spacing:.01em;
-  }
-  .plaque .infinity-mark{
-    display:inline-block; font-size:22px; color:var(--brass-bright);
-    margin:0 0 14px; letter-spacing:.4em;
-  }
-  .plaque p{
-    font-family:'Cormorant Garamond', serif;
-    font-size:17px; line-height:1.5; color:var(--parchment);
-    opacity:.88; margin:0 0 22px;
-  }
-  .tilt-legend{
-    display:grid; grid-template-columns:1fr 1fr; gap:8px 16px;
-    font-size:10.5px; color:var(--parchment); opacity:.75;
-    margin:0 0 24px; text-align:left; letter-spacing:.03em;
-  }
-  .tilt-legend div{display:flex; align-items:center; gap:8px;}
-  .tilt-legend span.key{
-    color:var(--brass-bright); font-weight:600; min-width:16px; text-align:center;
-  }
-  #enter-btn{
-    appearance:none; border:1px solid rgba(216,173,114,.55);
-    background:linear-gradient(180deg, var(--brass-bright), var(--brass));
-    color:#241608; font-family:'JetBrains Mono',monospace;
-    font-weight:600; font-size:12px; letter-spacing:.18em; text-transform:uppercase;
-    padding:14px 26px; border-radius:3px; cursor:pointer;
-    box-shadow:0 8px 20px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.4);
-    transition:transform .15s ease, box-shadow .15s ease;
-    width:100%;
-  }
-  #enter-btn:active{transform:translateY(1px) scale(.99);}
-  #overlay-note{
-    margin-top:14px; font-size:10px; color:var(--parchment); opacity:.55;
-    letter-spacing:.02em; line-height:1.5;
+      0 0 4vw 0.6vw rgba(210,220,255,0.55),
+      0 0 9vw 1.6vw rgba(150,170,235,0.22);
   }
 
-  /* ---------- HUD ---------- */
-  #hud{
-    position:fixed; inset:0; z-index:20; pointer-events:none;
-    display:none;
-  }
-  #hud.active{display:block;}
-
-  .brass-btn{
-    pointer-events:auto;
-    font-family:'JetBrains Mono',monospace;
-    font-size:9.5px; letter-spacing:.14em; text-transform:uppercase;
-    color:var(--brass-bright);
-    background:rgba(28,23,32,.62);
-    border:1px solid rgba(216,173,114,.4);
-    border-radius:3px; padding:9px 12px;
-    backdrop-filter:blur(6px);
-    cursor:pointer;
-    display:flex; align-items:center; gap:6px;
-    transition:background .15s ease, color .15s ease;
-  }
-  .brass-btn:hover{background:rgba(184,137,79,.22); color:var(--ivory);}
-  .brass-btn:active{transform:translateY(1px);}
-
-  #top-bar{
-    position:absolute; top:16px; left:16px; right:16px;
-    display:flex; justify-content:space-between; align-items:flex-start;
-    gap:10px;
-  }
-  #title-tag{
-    pointer-events:none;
-    font-family:'Cormorant Garamond', serif; font-style:italic;
-    color:var(--parchment); opacity:.65; font-size:14px;
-    letter-spacing:.02em; padding-top:8px;
-  }
-  #btn-group{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
-
-  /* Tilt gauge, bottom-left, styled like a brass spirit-level instrument */
-  #gauge-wrap{
-    position:absolute; left:16px; bottom:16px;
-    pointer-events:none;
-    display:flex; flex-direction:column; align-items:center; gap:6px;
-  }
-  #gauge{
-    width:104px; height:104px; border-radius:50%;
-    background:radial-gradient(circle at 40% 35%, #3a3340, #17131a 72%);
-    border:1px solid rgba(216,173,114,.4);
-    box-shadow:0 6px 18px rgba(0,0,0,.5), inset 0 0 14px rgba(0,0,0,.6);
+  .hero-inner{
     position:relative;
-  }
-  #gauge::before, #gauge::after{
-    content:''; position:absolute; background:rgba(216,173,114,.25);
-  }
-  #gauge::before{ left:50%; top:6px; bottom:6px; width:1px; transform:translateX(-50%);}
-  #gauge::after{ top:50%; left:6px; right:6px; height:1px; transform:translateY(-50%);}
-  #gauge-dot{
-    position:absolute; width:12px; height:12px; border-radius:50%;
-    left:50%; top:50%;
-    background:radial-gradient(circle at 35% 30%, var(--brass-bright), var(--brass) 60%, #5a3f20);
-    box-shadow:0 0 8px rgba(217,173,114,.7);
-    transform:translate(-50%,-50%);
-    transition:box-shadow .2s ease;
-  }
-  #gauge-label{
-    font-size:9px; letter-spacing:.16em; text-transform:uppercase;
-    color:var(--parchment); opacity:.5;
+    width:100%;
+    height:100%;
+    z-index:6;
   }
 
-  /* status pill top-left under title on mobile */
-  #status-pill{
-    pointer-events:none;
-    position:absolute; left:16px; top:16px;
-    font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
-    color:var(--brass-bright); opacity:.8;
-    background:rgba(28,23,32,.5); border:1px solid rgba(216,173,114,.25);
-    padding:6px 10px; border-radius:3px;
+  .glow-btn{
+    position:absolute;
+    border-radius:50%;
+    border:none;
+    padding:0;
+    cursor:pointer;
+    background: radial-gradient(circle at 35% 30%, #0e1120 0%, #06070f 60%, #030308 100%);
+    box-shadow:
+      0 0 1.4vw 0.35vw rgba(230,235,255,0.9),
+      0 0 3.2vw 0.9vw rgba(160,180,240,0.32);
+    transition: transform .25s ease, box-shadow .25s ease;
+  }
+  .glow-btn:hover{
+    transform: scale(1.06);
+    box-shadow:
+      0 0 1.8vw 0.5vw rgba(255,255,255,1),
+      0 0 4.2vw 1.2vw rgba(170,190,255,0.45);
+  }
+  .glow-btn:focus-visible{
+    outline: 2px solid rgba(255,255,255,0.7);
+    outline-offset: 4px;
   }
 
-  /* Joystick fallback (touch) */
-  #joystick{
-    position:absolute; right:20px; bottom:20px;
-    width:120px; height:120px; border-radius:50%;
-    background:rgba(28,23,32,.5);
-    border:1px solid rgba(216,173,114,.35);
-    pointer-events:auto;
-    touch-action:none;
-    display:none;
+  .btn-main{
+    width:16.5vw; height:16.5vw;
+    left:41.25vw; top:3.4vw;
   }
-  #joystick.show{display:block;}
-  #joystick-knob{
-    position:absolute; width:48px; height:48px; border-radius:50%;
-    left:50%; top:50%; transform:translate(-50%,-50%);
-    background:radial-gradient(circle at 35% 30%, var(--brass-bright), var(--brass) 65%, #5a3f20);
-    box-shadow:0 4px 10px rgba(0,0,0,.5);
+  .btn-a{ width:2.8vw; height:2.8vw; left:14.25vw; top:11.95vw; }
+  .btn-b{ width:3.3vw; height:3.3vw; left:26.35vw; top:16.65vw; }
+  .btn-c{ width:3.3vw; height:3.3vw; left:70.35vw; top:16.65vw; }
+  .btn-d{ width:2.8vw; height:2.8vw; left:82.95vw; top:11.95vw; }
+
+  .hero-copy{
+    position:absolute;
+    left:0; right:0;
+    bottom: 8vw;
+    z-index:6;
+    text-align:center;
+    padding: 0 6vw;
+  }
+  .hero-copy h1{
+    font-size: clamp(1.6rem, 3.6vw, 3rem);
+    font-weight:600;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.8rem;
+  }
+  .hero-copy p{
+    color: var(--muted);
+    font-size: clamp(0.9rem, 1.1vw, 1.05rem);
+    max-width: 34rem;
+    margin: 0 auto;
   }
 
-  /* Upload panel */
-  #upload-input{display:none;}
-  #toast{
-    position:fixed; left:50%; bottom:32px; transform:translateX(-50%) translateY(20px);
-    z-index:40; pointer-events:none;
-    background:rgba(28,23,32,.85); border:1px solid rgba(216,173,114,.4);
-    color:var(--parchment); font-size:11px; letter-spacing:.05em;
-    padding:10px 18px; border-radius:3px;
-    opacity:0; transition:opacity .3s ease, transform .3s ease;
+  /* ---------- CONTENT ---------- */
+  main{
+    background:#05060d;
+    padding: 6rem 6vw 5rem;
   }
-  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .section-title{
+    font-size: 1.6rem;
+    font-weight:600;
+    margin-bottom: 0.75rem;
+  }
+  .section-sub{
+    color: var(--muted);
+    max-width: 40rem;
+    margin-bottom: 3rem;
+    line-height:1.6;
+  }
+  .card-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+  }
+  .card{
+    background: linear-gradient(160deg, #0d1024 0%, #090b18 100%);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 1.75rem;
+  }
+  .card .dot{
+    width:14px;height:14px;border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #fff 0%, #9fb0e8 60%, #4a5a9a 100%);
+    box-shadow: 0 0 12px 2px rgba(180,195,255,0.6);
+    margin-bottom: 1rem;
+  }
+  .card h3{ font-size:1.05rem; margin-bottom:0.5rem; font-weight:600; }
+  .card p{ color:var(--muted); font-size:0.9rem; line-height:1.55; }
 
-  @media (max-width:520px){
-    #title-tag{display:none;}
-    #gauge{width:84px; height:84px;}
-    #joystick{width:104px; height:104px;}
+  footer{
+    background:#04050b;
+    color: var(--muted);
+    text-align:center;
+    padding: 2rem 1rem;
+    font-size:0.8rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  @media (max-width: 640px){
+    nav.links{ display:none; }
   }
 </style>
 </head>
 <body>
 
-<div id="canvas-wrap"></div>
+  <header class="site-nav">
+    <div class="logo">Eclipse</div>
+    <nav class="links">
+      <a href="#work">Work</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </header>
 
-<div id="hud">
-  <div id="top-bar">
-    <div id="title-tag">The Infinite Gallery</div>
-    <div id="btn-group">
-      <button class="brass-btn" id="upload-btn">＋ Hang Artwork</button>
-      <button class="brass-btn" id="recenter-btn">⟲ Recenter Tilt</button>
+  <section class="hero">
+    <div class="horizon"></div>
+    <div class="hero-inner">
+      <button class="glow-btn btn-a" aria-label="Explore"></button>
+      <button class="glow-btn btn-b" aria-label="Services"></button>
+      <button class="glow-btn btn-main" aria-label="Get started"></button>
+      <button class="glow-btn btn-c" aria-label="Work"></button>
+      <button class="glow-btn btn-d" aria-label="Contact"></button>
     </div>
-  </div>
-
-  <div id="gauge-wrap">
-    <div id="gauge"><div id="gauge-dot"></div></div>
-    <div id="gauge-label">tilt</div>
-  </div>
-
-  <div id="joystick"><div id="joystick-knob"></div></div>
-</div>
-
-<input type="file" id="upload-input" accept="image/*" multiple>
-<div id="toast"></div>
-
-<div id="overlay">
-  <div class="plaque">
-    <div class="screw tl"></div><div class="screw tr"></div>
-    <div class="screw bl"></div><div class="screw br"></div>
-    <div class="eyebrow">A Gallery Without Walls Between You And It</div>
-    <h1>The Infinite Gallery</h1>
-    <div class="infinity-mark">∞</div>
-    <p>Tilt your device to roll the marker through the room and view the pieces on display. Forward tilt rolls you forward, back tilts you back, and side to side turns the room around you.</p>
-    <div class="tilt-legend">
-      <div><span class="key">↑</span> Tilt forward — roll ahead</div>
-      <div><span class="key">↓</span> Tilt back — roll behind</div>
-      <div><span class="key">←</span> Tilt left — roll left</div>
-      <div><span class="key">→</span> Tilt right — roll right</div>
+    <div class="hero-copy">
+      <h1>Beyond the horizon</h1>
+      <p>A quiet corner of the dark, lit only by what's about to happen.</p>
     </div>
-    <button id="enter-btn">Enter the Gallery</button>
-    <div id="overlay-note">On desktop, use arrow keys or WASD instead of tilt.</div>
-  </div>
-</div>
+  </section>
+
+  <main>
+    <div class="section-title">What we do</div>
+    <p class="section-sub">Three ways to work with us, each orbiting the same idea: clarity, built slowly, in the dark.</p>
+    <div class="card-grid">
+      <div class="card">
+        <div class="dot"></div>
+        <h3>Design</h3>
+        <p>Interfaces that feel inevitable — considered, quiet, and built to last.</p>
+      </div>
+      <div class="card">
+        <div class="dot"></div>
+        <h3>Strategy</h3>
+        <p>Clear thinking before clever execution. We start with the right question.</p>
+      </div>
+      <div class="card">
+        <div class="dot"></div>
+        <h3>Build</h3>
+        <p>From concept to shipped product, without losing the shape of the idea.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    &copy; 2026 Eclipse Studio. All rights reserved.
+  </footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-(function(){
-  "use strict";
-
-  /* ============================================================
-     CONFIG
-  ============================================================ */
-  const ROOM_SIZE   = 52;      // interior width/depth
-  const WALL_H      = 11;
-  const WALL_T      = 1.2;
-  const BALL_R       = 0.62;
-  const ACCEL        = 26;      // tilt -> acceleration
-  const DAMPING      = 0.90;    // velocity damping per frame @60fps baseline
-  const MAX_SPEED    = 9;
-  const DEADZONE     = 0.06;
-  const CAM_DIST     = 6.4;
-  const CAM_HEIGHT   = 3.1;
-  const CAM_LERP     = 0.06;
-  const CAM_LOOK_LERP= 0.10;
-
-  const wrap = document.getElementById('canvas-wrap');
-
-  /* ============================================================
-     RENDERER / SCENE / CAMERA
-  ============================================================ */
-  const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x1c1720, 0.014);
-
-  const camera = new THREE.PerspectiveCamera(58, window.innerWidth/window.innerHeight, 0.1, 300);
-  camera.position.set(0, CAM_HEIGHT + 1, CAM_DIST);
-
-  const renderer = new THREE.WebGLRenderer({antialias:true});
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.outputEncoding = THREE.sRGBEncoding;
-  wrap.appendChild(renderer.domElement);
-
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-
-  /* ============================================================
-     LIGHTING — soft museum lighting
-  ============================================================ */
-  scene.add(new THREE.AmbientLight(0x4a4250, 0.9));
-
-  const key = new THREE.DirectionalLight(0xfff1dc, 0.9);
-  key.position.set(18, 28, 12);
-  key.castShadow = true;
-  key.shadow.mapSize.set(2048,2048);
-  key.shadow.camera.left = -ROOM_SIZE/1.6;
-  key.shadow.camera.right = ROOM_SIZE/1.6;
-  key.shadow.camera.top = ROOM_SIZE/1.6;
-  key.shadow.camera.bottom = -ROOM_SIZE/1.6;
-  key.shadow.camera.far = 80;
-  key.shadow.bias = -0.0015;
-  scene.add(key);
-
-  const fill = new THREE.HemisphereLight(0x3a3444, 0x231c14, 0.55);
-  scene.add(fill);
-
-  /* ============================================================
-     PROCEDURAL TEXTURES (canvas)
-  ============================================================ */
-  function makeCanvas(w,h){
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    return c;
-  }
-
-  function woodFloorTexture(){
-    const c = makeCanvas(1024,1024);
-    const ctx = c.getContext('2d');
-    const planks = 16;
-    const ph = c.height/planks;
-    for(let i=0;i<planks;i++){
-      const base = 60 + Math.random()*22;
-      const r = base+30, g = base+14, b = base-6;
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-      ctx.fillRect(0, i*ph, c.width, ph);
-      // grain streaks
-      for(let s=0; s<26; s++){
-        const y = i*ph + Math.random()*ph;
-        ctx.strokeStyle = `rgba(30,16,8,${0.05+Math.random()*0.08})`;
-        ctx.lineWidth = 0.6+Math.random()*1.2;
-        ctx.beginPath();
-        ctx.moveTo(0,y);
-        let cx = 0;
-        while(cx < c.width){
-          cx += 40+Math.random()*60;
-          ctx.lineTo(cx, y + (Math.random()-0.5)*6);
-        }
-        ctx.stroke();
-      }
-      // plank seam
-      ctx.fillStyle = 'rgba(15,8,4,0.5)';
-      ctx.fillRect(0, i*ph, c.width, 2);
-      // occasional cross-seams
-      if(Math.random()>0.4){
-        const sx = Math.random()*c.width;
-        ctx.fillRect(sx, i*ph, 2, ph);
-      }
-    }
-    const tex = new THREE.CanvasTexture(c);
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(ROOM_SIZE/6, ROOM_SIZE/6);
-    tex.anisotropy = 8;
-    return tex;
-  }
-
-  function wallTexture(){
-    const c = makeCanvas(512,512);
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#2a2530';
-    ctx.fillRect(0,0,c.width,c.height);
-    const grd = ctx.createLinearGradient(0,0,0,c.height);
-    grd.addColorStop(0,'rgba(255,255,255,0.03)');
-    grd.addColorStop(0.5,'rgba(0,0,0,0.0)');
-    grd.addColorStop(1,'rgba(0,0,0,0.12)');
-    ctx.fillStyle = grd;
-    ctx.fillRect(0,0,c.width,c.height);
-    // subtle noise
-    const id = ctx.getImageData(0,0,c.width,c.height);
-    for(let i=0;i<id.data.length;i+=4){
-      const n = (Math.random()-0.5)*10;
-      id.data[i]+=n; id.data[i+1]+=n; id.data[i+2]+=n;
-    }
-    ctx.putImageData(id,0,0);
-    // brass picture rail line
-    ctx.fillStyle = 'rgba(184,137,79,0.18)';
-    ctx.fillRect(0, c.height*0.22, c.width, 3);
-    const tex = new THREE.CanvasTexture(c);
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(ROOM_SIZE/10, WALL_H/10);
-    return tex;
-  }
-
-  function frameWoodTexture(){
-    const c = makeCanvas(256,256);
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#4a2d18';
-    ctx.fillRect(0,0,c.width,c.height);
-    for(let i=0;i<40;i++){
-      ctx.strokeStyle = `rgba(20,10,4,${0.08+Math.random()*0.12})`;
-      ctx.lineWidth = 1+Math.random()*1.5;
-      ctx.beginPath();
-      const y = Math.random()*c.height;
-      ctx.moveTo(0,y);
-      ctx.lineTo(c.width, y + (Math.random()-0.5)*20);
-      ctx.stroke();
-    }
-    const tex = new THREE.CanvasTexture(c);
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(4,1);
-    return tex;
-  }
-
-  function placeholderArtTexture(seedIndex){
-    const c = makeCanvas(512,384);
-    const ctx = c.getContext('2d');
-    const palettes = [
-      ['#8a6b4f','#c9a876','#3d2c1e'],
-      ['#5c6b5f','#a3b79a','#28331f'],
-      ['#7a4b4b','#c98d7a','#3a1f1f'],
-      ['#4b5a7a','#8fa3c9','#1f2a3a'],
-      ['#6b5b7a','#b39fc9','#2a1f3a'],
-      ['#7a6b3a','#c9b36f','#3a2f1a'],
-    ];
-    const p = palettes[seedIndex % palettes.length];
-    ctx.fillStyle = p[0];
-    ctx.fillRect(0,0,c.width,c.height);
-    ctx.fillStyle = p[1];
-    ctx.beginPath();
-    ctx.ellipse(c.width*0.5, c.height*0.55, c.width*0.32, c.height*0.34, 0, 0, Math.PI*2);
-    ctx.fill();
-    ctx.strokeStyle = p[2];
-    ctx.lineWidth = 6;
-    for(let i=0;i<5;i++){
-      ctx.beginPath();
-      ctx.moveTo(0, c.height*(0.15+i*0.15));
-      ctx.lineTo(c.width, c.height*(0.05+i*0.17));
-      ctx.stroke();
-    }
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.font = '300 20px Georgia, serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('untitled study, no. ' + (seedIndex+1), c.width/2, c.height-24);
-    return new THREE.CanvasTexture(c);
-  }
-
-  function infinityBallTexture(){
-    const c = makeCanvas(1024,512);
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#e9e2d0';
-    ctx.fillRect(0,0,c.width,c.height);
-    // subtle radial shading to fake sphere occlusion on the flat map
-    const grd = ctx.createRadialGradient(c.width/2,c.height/2,10,c.width/2,c.height/2,c.width/2);
-    grd.addColorStop(0,'rgba(255,255,255,0.15)');
-    grd.addColorStop(1,'rgba(0,0,0,0.10)');
-    ctx.fillStyle = grd;
-    ctx.fillRect(0,0,c.width,c.height);
-
-    function drawInfinity(cx,cy,scale){
-      ctx.save();
-      ctx.translate(cx,cy);
-      ctx.scale(scale,scale);
-      ctx.strokeStyle = '#8a6a35';
-      ctx.lineWidth = 14;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      for(let t=0;t<=Math.PI*2+0.01;t+=0.02){
-        const x = 80*Math.cos(t) / (1+Math.sin(t)*Math.sin(t));
-        const y = 80*Math.sin(t)*Math.cos(t) / (1+Math.sin(t)*Math.sin(t));
-        if(t===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-      }
-      ctx.stroke();
-      ctx.restore();
-    }
-    // repeat around equator band so the mark is visible while rolling
-    drawInfinity(c.width*0.25, c.height*0.5, 1.15);
-    drawInfinity(c.width*0.75, c.height*0.5, 1.15);
-    drawInfinity(c.width*0.0,  c.height*0.5, 1.15);
-    drawInfinity(c.width*1.0,  c.height*0.5, 1.15);
-
-    const tex = new THREE.CanvasTexture(c);
-    tex.wrapS = THREE.RepeatWrapping;
-    return tex;
-  }
-
-  /* ============================================================
-     FLOOR
-  ============================================================ */
-  const floorTex = woodFloorTexture();
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(ROOM_SIZE, ROOM_SIZE, 1, 1),
-    new THREE.MeshStandardMaterial({map:floorTex, roughness:0.72, metalness:0.05})
-  );
-  floor.rotation.x = -Math.PI/2;
-  floor.receiveShadow = true;
-  scene.add(floor);
-
-  // gentle skirting/baseboard so the floor-wall seam reads solid (purely visual, no gap)
-  const baseboardMat = new THREE.MeshStandardMaterial({color:0x1c130c, roughness:0.8});
-
-  /* ============================================================
-     WALLS + FRAMES
-  ============================================================ */
-  const wallTex = wallTexture();
-  const wallMat = new THREE.MeshStandardMaterial({map:wallTex, roughness:0.95, metalness:0.0});
-  const frameWoodTex = frameWoodTexture();
-  const frameMat = new THREE.MeshStandardMaterial({map:frameWoodTex, roughness:0.6, metalness:0.08});
-
-  const half = ROOM_SIZE/2;
-
-  function addWall(w,h,d,pos){
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wallMat);
-    mesh.position.copy(pos);
-    mesh.position.y = h/2;
-    mesh.receiveShadow = true;
-    mesh.castShadow = false;
-    scene.add(mesh);
-
-    const base = new THREE.Mesh(new THREE.BoxGeometry(w+0.05,0.32,d+0.05), baseboardMat);
-    base.position.set(pos.x, 0.16, pos.z);
-    if(w < d){ base.scale.set(1,1,1); }
-    scene.add(base);
-  }
-
-  addWall(ROOM_SIZE, WALL_H, WALL_T, new THREE.Vector3(0,0,-half));           // north
-  addWall(ROOM_SIZE, WALL_H, WALL_T, new THREE.Vector3(0,0, half));           // south
-  addWall(WALL_T, WALL_H, ROOM_SIZE, new THREE.Vector3(-half,0,0));           // west
-  addWall(WALL_T, WALL_H, ROOM_SIZE, new THREE.Vector3( half,0,0));           // east
-
-  // Frame slots: definitions of {position, rotationY (facing inward), width, height}
-  const frameSlots = [];
-  const inset = WALL_T/2 + 0.04;
-  const frameY = WALL_H*0.5;
-  const spread = [-half*0.55, 0, half*0.55];
-
-  spread.forEach((x,i)=>{
-    const big = i===1;
-    frameSlots.push({ x, y:frameY, z:-half+inset, rotY:0,            w: big?5.6:4.2, h: big?4.0:3.1 }); // north, normal +Z
-  });
-  spread.forEach((x,i)=>{
-    const big = i===1;
-    frameSlots.push({ x, y:frameY, z: half-inset, rotY:Math.PI,      w: big?5.6:4.2, h: big?4.0:3.1 }); // south, normal -Z
-  });
-  spread.forEach((z,i)=>{
-    const big = i===1;
-    frameSlots.push({ x:-half+inset, y:frameY, z, rotY:Math.PI/2,    w: big?5.6:4.2, h: big?4.0:3.1 }); // west, normal +X
-  });
-  spread.forEach((z,i)=>{
-    const big = i===1;
-    frameSlots.push({ x: half-inset, y:frameY, z, rotY:-Math.PI/2,   w: big?5.6:4.2, h: big?4.0:3.1 }); // east, normal -X
-  });
-
-  const artMeshes = []; // to swap textures on upload
-
-  function buildFrame(slot, index){
-    const group = new THREE.Group();
-    group.position.set(slot.x, slot.y, slot.z);
-    group.rotation.y = slot.rotY;
-
-    const border = 0.32;
-    const depth = 0.16;
-
-    // frame border (four strips)
-    const strips = [
-      {w: slot.w+border*2, h: border, x:0, y: slot.h/2+border/2},
-      {w: slot.w+border*2, h: border, x:0, y: -slot.h/2-border/2},
-      {w: border, h: slot.h, x: slot.w/2+border/2, y:0},
-      {w: border, h: slot.h, x: -slot.w/2-border/2, y:0},
-    ];
-    strips.forEach(s=>{
-      const m = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h, depth), frameMat);
-      m.position.set(s.x, s.y, depth/2 - 0.02);
-      m.castShadow = true; m.receiveShadow = true;
-      group.add(m);
-    });
-
-    // backing panel (slightly recessed, dark)
-    const backing = new THREE.Mesh(
-      new THREE.PlaneGeometry(slot.w+border*0.3, slot.h+border*0.3),
-      new THREE.MeshStandardMaterial({color:0x0e0b0a, roughness:0.9})
-    );
-    backing.position.z = -0.01;
-    group.add(backing);
-
-    // artwork plane
-    const artTex = placeholderArtTexture(index);
-    const art = new THREE.Mesh(
-      new THREE.PlaneGeometry(slot.w, slot.h),
-      new THREE.MeshStandardMaterial({map:artTex, roughness:0.85})
-    );
-    art.position.z = 0.02;
-    art.castShadow = false;
-    art.receiveShadow = true;
-    group.add(art);
-    artMeshes.push(art);
-
-    // small brass placard beneath
-    const placardGeo = new THREE.PlaneGeometry(slot.w*0.4, 0.32);
-    const placard = new THREE.Mesh(placardGeo, new THREE.MeshStandardMaterial({color:0x2a2530, roughness:0.6, metalness:0.2}));
-    placard.position.set(0, -slot.h/2 - border - 0.32, 0.02);
-    group.add(placard);
-
-    scene.add(group);
-
-    // small accent spotlight aimed at every third frame for gallery ambience without perf hit
-    if(index % 3 === 0){
-      const spot = new THREE.PointLight(0xffe6c2, 0.5, 9, 2);
-      const dir = new THREE.Vector3(0,0,1).applyEuler(new THREE.Euler(0, slot.rotY,0));
-      spot.position.copy(group.position).addScaledVector(dir, 2.6);
-      spot.position.y += 1.4;
-      scene.add(spot);
-    }
-  }
-
-  frameSlots.forEach((slot,i)=>buildFrame(slot,i));
-
-  /* ============================================================
-     BALL
-  ============================================================ */
-  const ballTex = infinityBallTexture();
-  const ball = new THREE.Mesh(
-    new THREE.SphereGeometry(BALL_R, 48, 48),
-    new THREE.MeshStandardMaterial({map:ballTex, roughness:0.35, metalness:0.15})
-  );
-  ball.position.set(0, BALL_R, 6);
-  ball.castShadow = true;
-  ball.receiveShadow = true;
-  scene.add(ball);
-
-  // soft contact shadow blob (helps ground the ball visually, no physics implication)
-  const shadowBlob = new THREE.Mesh(
-    new THREE.CircleGeometry(BALL_R*1.15, 24),
-    new THREE.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0.28})
-  );
-  shadowBlob.rotation.x = -Math.PI/2;
-  shadowBlob.position.y = 0.01;
-  scene.add(shadowBlob);
-
-  /* ============================================================
-     INPUT — gyroscope, keyboard, touch joystick
-  ============================================================ */
-  const tilt = {forward:0, right:0};      // normalized -1..1
-  const keys = {up:false,down:false,left:false,right:false};
-  let baseline = {beta:0, gamma:0};
-  let gyroActive = false;
-
-  function normalize(v, lo, hi){
-    return Math.max(-1, Math.min(1, v/hi));
-  }
-
-  function onDeviceOrientation(e){
-    if(e.beta === null || e.gamma === null) return;
-    const beta = e.beta - baseline.beta;   // front-back
-    const gamma = e.gamma - baseline.gamma; // left-right
-    let f = normalize(beta, 0, 32);
-    let r = normalize(gamma, 0, 32);
-    if(Math.abs(f) < DEADZONE) f = 0;
-    if(Math.abs(r) < DEADZONE) r = 0;
-    tilt.forward = f;
-    tilt.right = r;
-  }
-
-  function calibrate(){
-    // capture a short-lived listener to read current orientation as neutral baseline
-    function once(e){
-      if(e.beta !== null){ baseline.beta = e.beta; baseline.gamma = e.gamma; }
-      window.removeEventListener('deviceorientation', once);
-      showToast('Recentered — this angle is now "flat".');
-    }
-    window.addEventListener('deviceorientation', once);
-  }
-
-  function enableGyro(){
-    if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
-      DeviceOrientationEvent.requestPermission().then(state=>{
-        if(state === 'granted'){
-          window.addEventListener('deviceorientation', onDeviceOrientation);
-          gyroActive = true;
-          calibrate();
-        } else {
-          showJoystick();
-        }
-      }).catch(()=>{ showJoystick(); });
-    } else if(typeof DeviceOrientationEvent !== 'undefined'){
-      window.addEventListener('deviceorientation', onDeviceOrientation);
-      gyroActive = true;
-      calibrate();
-    } else {
-      showJoystick();
-    }
-  }
-
-  // Keyboard fallback (desktop)
-  window.addEventListener('keydown', e=>{
-    switch(e.key){
-      case 'ArrowUp': case 'w': case 'W': keys.up=true; break;
-      case 'ArrowDown': case 's': case 'S': keys.down=true; break;
-      case 'ArrowLeft': case 'a': case 'A': keys.left=true; break;
-      case 'ArrowRight': case 'd': case 'D': keys.right=true; break;
-    }
-  });
-  window.addEventListener('keyup', e=>{
-    switch(e.key){
-      case 'ArrowUp': case 'w': case 'W': keys.up=false; break;
-      case 'ArrowDown': case 's': case 'S': keys.down=false; break;
-      case 'ArrowLeft': case 'a': case 'A': keys.left=false; break;
-      case 'ArrowRight': case 'd': case 'D': keys.right=false; break;
-    }
-  });
-
-  // Touch joystick fallback
-  const joystick = document.getElementById('joystick');
-  const knob = document.getElementById('joystick-knob');
-  let joyActive = false, joyCenter = {x:0,y:0};
-  const JOY_R = 44;
-
-  function showJoystick(){ joystick.classList.add('show'); }
-
-  joystick.addEventListener('pointerdown', e=>{
-    joyActive = true;
-    const rect = joystick.getBoundingClientRect();
-    joyCenter = {x:rect.left+rect.width/2, y:rect.top+rect.height/2};
-    joystick.setPointerCapture(e.pointerId);
-  });
-  joystick.addEventListener('pointermove', e=>{
-    if(!joyActive) return;
-    let dx = e.clientX - joyCenter.x;
-    let dy = e.clientY - joyCenter.y;
-    const dist = Math.min(JOY_R, Math.hypot(dx,dy));
-    const ang = Math.atan2(dy,dx);
-    dx = Math.cos(ang)*dist; dy = Math.sin(ang)*dist;
-    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    tilt.right = dx/JOY_R;
-    tilt.forward = -dy/JOY_R;
-  });
-  function joyEnd(){
-    joyActive = false;
-    knob.style.transform = 'translate(-50%,-50%)';
-    if(!gyroActive){ tilt.forward = 0; tilt.right = 0; }
-  }
-  joystick.addEventListener('pointerup', joyEnd);
-  joystick.addEventListener('pointercancel', joyEnd);
-
-  function updateTiltFromKeys(){
-    if(gyroActive || joyActive) return;
-    let f=0,r=0;
-    if(keys.up) f+=1; if(keys.down) f-=1;
-    if(keys.right) r+=1; if(keys.left) r-=1;
-    tilt.forward = f; tilt.right = r;
-  }
-
-  /* ============================================================
-     UI wiring
-  ============================================================ */
-  const overlay = document.getElementById('overlay');
-  const hud = document.getElementById('hud');
-  const enterBtn = document.getElementById('enter-btn');
-  const recenterBtn = document.getElementById('recenter-btn');
-  const uploadBtn = document.getElementById('upload-btn');
-  const uploadInput = document.getElementById('upload-input');
-  const gaugeDot = document.getElementById('gauge-dot');
-  const toast = document.getElementById('toast');
-
-  let toastTimer = null;
-  function showToast(msg){
-    toast.textContent = msg;
-    toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=>toast.classList.remove('show'), 2200);
-  }
-
-  enterBtn.addEventListener('click', ()=>{
-    overlay.classList.add('hidden');
-    hud.classList.add('active');
-    enableGyro();
-    if(!('ontouchstart' in window)){
-      showToast('Use arrow keys or WASD to roll.');
-    }
-    renderer.domElement.focus && renderer.domElement.focus();
-  });
-
-  recenterBtn.addEventListener('click', ()=>{
-    if(gyroActive){ calibrate(); }
-    else { showToast('Gyroscope not active on this device.'); }
-  });
-
-  uploadBtn.addEventListener('click', ()=> uploadInput.click());
-  uploadInput.addEventListener('change', (e)=>{
-    const files = Array.from(e.target.files || []).slice(0, artMeshes.length);
-    if(files.length === 0) return;
-    let loaded = 0;
-    files.forEach((file, i)=>{
-      const reader = new FileReader();
-      reader.onload = (ev)=>{
-        const img = new Image();
-        img.onload = ()=>{
-          const tex = new THREE.Texture(img);
-          tex.needsUpdate = true;
-          tex.encoding = THREE.sRGBEncoding;
-          artMeshes[i].material.map = tex;
-          artMeshes[i].material.needsUpdate = true;
-          loaded++;
-          if(loaded === files.length) showToast(`Hung ${loaded} piece${loaded>1?'s':''} on the wall.`);
-        };
-        img.src = ev.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-  });
-
-  /* ============================================================
-     PHYSICS + CAMERA LOOP
-  ============================================================ */
-  const velocity = new THREE.Vector3(0,0,0);
-  let headingAngle = Math.PI; // camera-facing azimuth, radians; start looking toward -Z (into gallery)
-  const boundLimit = half - WALL_T/2 - BALL_R - 0.02;
-
-  const clock = new THREE.Clock();
-
-  function tick(){
-    requestAnimationFrame(tick);
-    const dt = Math.min(clock.getDelta(), 0.05);
-
-    updateTiltFromKeys();
-
-    // gauge UI
-    gaugeDot.style.transform = `translate(calc(-50% + ${tilt.right*38}px), calc(-50% + ${-tilt.forward*38}px))`;
-
-    // --- movement: world-fixed axes, forward = -Z, right = +X ---
-    const moveDir = new THREE.Vector3(tilt.right, 0, -tilt.forward);
-    const mag = moveDir.length();
-
-    if(mag > DEADZONE){
-      moveDir.normalize();
-      velocity.x += moveDir.x * ACCEL * dt;
-      velocity.z += moveDir.z * ACCEL * dt;
-      const targetAngle = Math.atan2(moveDir.x, -moveDir.z); // camera should look along moveDir
-      headingAngle = lerpAngle(headingAngle, targetAngle, 0.12);
-    }
-
-    // damping (frame-rate independent-ish)
-    const dampFactor = Math.pow(DAMPING, dt*60);
-    velocity.x *= dampFactor;
-    velocity.z *= dampFactor;
-
-    const speed = Math.hypot(velocity.x, velocity.z);
-    if(speed > MAX_SPEED){
-      velocity.x = velocity.x/speed*MAX_SPEED;
-      velocity.z = velocity.z/speed*MAX_SPEED;
-    }
-
-    // integrate position
-    let nx = ball.position.x + velocity.x*dt;
-    let nz = ball.position.z + velocity.z*dt;
-
-    // clamp within room bounds (solid walls — the platform has no gaps, this just stops the ball at the wall)
-    if(nx > boundLimit){ nx = boundLimit; velocity.x = 0; }
-    if(nx < -boundLimit){ nx = -boundLimit; velocity.x = 0; }
-    if(nz > boundLimit){ nz = boundLimit; velocity.z = 0; }
-    if(nz < -boundLimit){ nz = -boundLimit; velocity.z = 0; }
-
-    const dx = nx - ball.position.x;
-    const dz = nz - ball.position.z;
-    ball.position.x = nx;
-    ball.position.z = nz;
-    ball.position.y = BALL_R; // fixed height — solid platform, nothing to fall through
-
-    // rolling rotation
-    const rollDist = Math.hypot(dx,dz);
-    if(rollDist > 0.00001){
-      const axis = new THREE.Vector3(-dz, 0, dx).normalize();
-      const angle = rollDist / BALL_R;
-      ball.rotateOnWorldAxis(axis, angle);
-    }
-
-    shadowBlob.position.x = ball.position.x;
-    shadowBlob.position.z = ball.position.z;
-
-    // --- camera: third-person, azimuth follows tilt heading ---
-    const camX = ball.position.x - Math.sin(headingAngle)*CAM_DIST;
-    const camZ = ball.position.z + Math.cos(headingAngle)*CAM_DIST;
-    const desired = new THREE.Vector3(camX, ball.position.y + CAM_HEIGHT, camZ);
-
-    camera.position.lerp(desired, CAM_LERP);
-    // keep camera inside room too
-    camera.position.x = Math.max(-half+0.6, Math.min(half-0.6, camera.position.x));
-    camera.position.z = Math.max(-half+0.6, Math.min(half-0.6, camera.position.z));
-    camera.position.y = Math.max(1.2, Math.min(WALL_H-0.5, camera.position.y));
-
-    const lookTarget = new THREE.Vector3(ball.position.x, ball.position.y+0.4, ball.position.z);
-    const currentLook = camera.userData.look || lookTarget.clone();
-    currentLook.lerp(lookTarget, CAM_LOOK_LERP);
-    camera.userData.look = currentLook;
-    camera.lookAt(currentLook);
-
-    renderer.render(scene, camera);
-  }
-
-  function lerpAngle(a,b,t){
-    let diff = ((b-a+Math.PI) % (Math.PI*2)) - Math.PI;
-    if(diff < -Math.PI) diff += Math.PI*2;
-    return a + diff*t;
-  }
-
-  tick();
-
-  /* Show touch joystick automatically on touch devices as a safety-net control
-     alongside gyroscope (in case gyro permission is denied or unsupported). */
-  if('ontouchstart' in window){
-    showJoystick();
-  }
-
-})();
-</script>
 </body>
 </html>
