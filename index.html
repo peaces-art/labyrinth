@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>peaces</title>
+<title>Eclipse</title>
 <style>
   :root{
     --ink: #eef1fb;
@@ -114,7 +114,13 @@
   .btn-main{
     width:16.5vw; height:16.5vw;
     left:41.25vw; top:3.4vw;
-    background: #030308 url("../uploads/peaces%20logo%20BW%20TransparentBG.png") center / 90% no-repeat;
+  }
+  .btn-main-image{
+    position:absolute;
+    width:16.5vw; height:16.5vw;
+    left:41.25vw; top:3.4vw;
+    pointer-events:none;
+    z-index:7;
   }
   .btn-a{ width:2.8vw; height:2.8vw; left:14.25vw; top:11.95vw; }
   .btn-b{ width:3.3vw; height:3.3vw; left:26.35vw; top:16.65vw; }
@@ -204,6 +210,7 @@
       <button class="glow-btn btn-a" aria-label="Explore"></button>
       <button class="glow-btn btn-b" aria-label="Services"></button>
       <button class="glow-btn btn-main" aria-label="Get started"></button>
+      <img class="btn-main-image" src="../uploads/peaces%20logo%20BW%20TransparentBG-4288e7ab.png" alt="Peace logo">
       <button class="glow-btn btn-c" aria-label="Work"></button>
       <button class="glow-btn btn-d" aria-label="Contact"></button>
     </div>
