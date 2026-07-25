@@ -2,503 +2,939 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Labyrinth 3D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Infinite Gallery — Tilt to Wander</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #111; overflow: hidden; font-family: 'Courier New', monospace; }
-  canvas { display: block; }
-  #ui {
-    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-    color: #e8d5a3; text-align: center; pointer-events: none;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  :root{
+    --walnut:#5b3a26;
+    --walnut-dark:#2c1c12;
+    --wall:#2a2530;
+    --wall-deep:#1c1720;
+    --brass:#b8894f;
+    --brass-bright:#d9ad72;
+    --parchment:#ece4d3;
+    --ivory:#f4efe3;
+    --ink:#161113;
   }
-  #ui h1 { font-size: 1.4rem; letter-spacing: 0.3em; opacity: 0.85; }
-  #ui p { font-size: 0.75rem; opacity: 0.6; margin-top: 4px; letter-spacing: 0.1em; }
-  #tilt-display {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    color: #e8d5a3; font-size: 0.7rem; opacity: 0.5; letter-spacing: 0.1em;
-    pointer-events: none;
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    overflow:hidden; background:var(--wall-deep);
+    font-family:'JetBrains Mono',monospace;
+    -webkit-user-select:none; user-select:none;
+    touch-action:none;
+    overscroll-behavior:none;
   }
-  #win-msg {
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    color: #ffd700; font-size: 2rem; letter-spacing: 0.3em;
-    text-shadow: 0 0 30px rgba(255,215,0,0.8);
-    display: none; pointer-events: none;
-    animation: pulse 1s ease-in-out infinite;
+  #canvas-wrap{position:fixed; inset:0;}
+  canvas{display:block; width:100%; height:100%;}
+
+  /* ---------- Start / Plaque overlay ---------- */
+  #overlay{
+    position:fixed; inset:0; z-index:50;
+    display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(90,60,40,0.25), transparent 60%),
+      var(--wall-deep);
+    transition:opacity .7s ease, visibility .7s ease;
   }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-  #gyro-btn {
-    position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
-    background: rgba(232,213,163,0.15); border: 1px solid rgba(232,213,163,0.4);
-    color: #e8d5a3; font-family: 'Courier New', monospace; font-size: 0.75rem;
-    letter-spacing: 0.15em; padding: 10px 20px; border-radius: 4px;
-    cursor: pointer; display: none;
+  #overlay.hidden{opacity:0; visibility:hidden; pointer-events:none;}
+
+  .plaque{
+    position:relative;
+    width:min(440px, 88vw);
+    padding:38px 34px 30px;
+    background:
+      linear-gradient(180deg, #6b4630 0%, var(--walnut) 12%, var(--walnut) 88%, #3a2416 100%);
+    border-radius:6px;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.5),
+      0 30px 60px rgba(0,0,0,.55),
+      inset 0 0 40px rgba(0,0,0,.35),
+      inset 0 2px 0 rgba(255,255,255,.06);
+    text-align:center;
   }
-  #gyro-btn:active { background: rgba(232,213,163,0.3); }
+  .plaque::before{
+    content:'';
+    position:absolute; inset:9px;
+    border:1px solid rgba(216,173,114,.35);
+    border-radius:3px;
+    pointer-events:none;
+  }
+  .plaque .screw{
+    position:absolute; width:7px; height:7px; border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, #e6c88f, #8a6636 70%, #3a2712);
+    box-shadow:0 1px 2px rgba(0,0,0,.6);
+  }
+  .plaque .screw.tl{top:14px; left:14px;} .plaque .screw.tr{top:14px; right:14px;}
+  .plaque .screw.bl{bottom:14px; left:14px;} .plaque .screw.br{bottom:14px; right:14px;}
+
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px; letter-spacing:.32em; text-transform:uppercase;
+    color:var(--brass-bright); opacity:.85; margin-bottom:10px;
+  }
+  .plaque h1{
+    font-family:'Cormorant Garamond', serif;
+    font-weight:600; font-style:normal;
+    font-size:clamp(30px,6vw,40px);
+    color:var(--ivory); margin:0 0 6px;
+    letter-spacing:.01em;
+  }
+  .plaque .infinity-mark{
+    display:inline-block; font-size:22px; color:var(--brass-bright);
+    margin:0 0 14px; letter-spacing:.4em;
+  }
+  .plaque p{
+    font-family:'Cormorant Garamond', serif;
+    font-size:17px; line-height:1.5; color:var(--parchment);
+    opacity:.88; margin:0 0 22px;
+  }
+  .tilt-legend{
+    display:grid; grid-template-columns:1fr 1fr; gap:8px 16px;
+    font-size:10.5px; color:var(--parchment); opacity:.75;
+    margin:0 0 24px; text-align:left; letter-spacing:.03em;
+  }
+  .tilt-legend div{display:flex; align-items:center; gap:8px;}
+  .tilt-legend span.key{
+    color:var(--brass-bright); font-weight:600; min-width:16px; text-align:center;
+  }
+  #enter-btn{
+    appearance:none; border:1px solid rgba(216,173,114,.55);
+    background:linear-gradient(180deg, var(--brass-bright), var(--brass));
+    color:#241608; font-family:'JetBrains Mono',monospace;
+    font-weight:600; font-size:12px; letter-spacing:.18em; text-transform:uppercase;
+    padding:14px 26px; border-radius:3px; cursor:pointer;
+    box-shadow:0 8px 20px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.4);
+    transition:transform .15s ease, box-shadow .15s ease;
+    width:100%;
+  }
+  #enter-btn:active{transform:translateY(1px) scale(.99);}
+  #overlay-note{
+    margin-top:14px; font-size:10px; color:var(--parchment); opacity:.55;
+    letter-spacing:.02em; line-height:1.5;
+  }
+
+  /* ---------- HUD ---------- */
+  #hud{
+    position:fixed; inset:0; z-index:20; pointer-events:none;
+    display:none;
+  }
+  #hud.active{display:block;}
+
+  .brass-btn{
+    pointer-events:auto;
+    font-family:'JetBrains Mono',monospace;
+    font-size:9.5px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--brass-bright);
+    background:rgba(28,23,32,.62);
+    border:1px solid rgba(216,173,114,.4);
+    border-radius:3px; padding:9px 12px;
+    backdrop-filter:blur(6px);
+    cursor:pointer;
+    display:flex; align-items:center; gap:6px;
+    transition:background .15s ease, color .15s ease;
+  }
+  .brass-btn:hover{background:rgba(184,137,79,.22); color:var(--ivory);}
+  .brass-btn:active{transform:translateY(1px);}
+
+  #top-bar{
+    position:absolute; top:16px; left:16px; right:16px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    gap:10px;
+  }
+  #title-tag{
+    pointer-events:none;
+    font-family:'Cormorant Garamond', serif; font-style:italic;
+    color:var(--parchment); opacity:.65; font-size:14px;
+    letter-spacing:.02em; padding-top:8px;
+  }
+  #btn-group{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
+
+  /* Tilt gauge, bottom-left, styled like a brass spirit-level instrument */
+  #gauge-wrap{
+    position:absolute; left:16px; bottom:16px;
+    pointer-events:none;
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+  }
+  #gauge{
+    width:104px; height:104px; border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, #3a3340, #17131a 72%);
+    border:1px solid rgba(216,173,114,.4);
+    box-shadow:0 6px 18px rgba(0,0,0,.5), inset 0 0 14px rgba(0,0,0,.6);
+    position:relative;
+  }
+  #gauge::before, #gauge::after{
+    content:''; position:absolute; background:rgba(216,173,114,.25);
+  }
+  #gauge::before{ left:50%; top:6px; bottom:6px; width:1px; transform:translateX(-50%);}
+  #gauge::after{ top:50%; left:6px; right:6px; height:1px; transform:translateY(-50%);}
+  #gauge-dot{
+    position:absolute; width:12px; height:12px; border-radius:50%;
+    left:50%; top:50%;
+    background:radial-gradient(circle at 35% 30%, var(--brass-bright), var(--brass) 60%, #5a3f20);
+    box-shadow:0 0 8px rgba(217,173,114,.7);
+    transform:translate(-50%,-50%);
+    transition:box-shadow .2s ease;
+  }
+  #gauge-label{
+    font-size:9px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--parchment); opacity:.5;
+  }
+
+  /* status pill top-left under title on mobile */
+  #status-pill{
+    pointer-events:none;
+    position:absolute; left:16px; top:16px;
+    font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--brass-bright); opacity:.8;
+    background:rgba(28,23,32,.5); border:1px solid rgba(216,173,114,.25);
+    padding:6px 10px; border-radius:3px;
+  }
+
+  /* Joystick fallback (touch) */
+  #joystick{
+    position:absolute; right:20px; bottom:20px;
+    width:120px; height:120px; border-radius:50%;
+    background:rgba(28,23,32,.5);
+    border:1px solid rgba(216,173,114,.35);
+    pointer-events:auto;
+    touch-action:none;
+    display:none;
+  }
+  #joystick.show{display:block;}
+  #joystick-knob{
+    position:absolute; width:48px; height:48px; border-radius:50%;
+    left:50%; top:50%; transform:translate(-50%,-50%);
+    background:radial-gradient(circle at 35% 30%, var(--brass-bright), var(--brass) 65%, #5a3f20);
+    box-shadow:0 4px 10px rgba(0,0,0,.5);
+  }
+
+  /* Upload panel */
+  #upload-input{display:none;}
+  #toast{
+    position:fixed; left:50%; bottom:32px; transform:translateX(-50%) translateY(20px);
+    z-index:40; pointer-events:none;
+    background:rgba(28,23,32,.85); border:1px solid rgba(216,173,114,.4);
+    color:var(--parchment); font-size:11px; letter-spacing:.05em;
+    padding:10px 18px; border-radius:3px;
+    opacity:0; transition:opacity .3s ease, transform .3s ease;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  @media (max-width:520px){
+    #title-tag{display:none;}
+    #gauge{width:84px; height:84px;}
+    #joystick{width:104px; height:104px;}
+  }
 </style>
 </head>
 <body>
-<div id="ui">
-  <h1>LABYRINTH</h1>
-  <p id="controls-hint">ARROW KEYS / WASD — TILT THE BOARD</p>
+
+<div id="canvas-wrap"></div>
+
+<div id="hud">
+  <div id="top-bar">
+    <div id="title-tag">The Infinite Gallery</div>
+    <div id="btn-group">
+      <button class="brass-btn" id="upload-btn">＋ Hang Artwork</button>
+      <button class="brass-btn" id="recenter-btn">⟲ Recenter Tilt</button>
+    </div>
+  </div>
+
+  <div id="gauge-wrap">
+    <div id="gauge"><div id="gauge-dot"></div></div>
+    <div id="gauge-label">tilt</div>
+  </div>
+
+  <div id="joystick"><div id="joystick-knob"></div></div>
 </div>
-<div id="tilt-display" id="tilt-display">TILT: X 0° / Z 0°</div>
-<div id="win-msg">🏆 IN THE HOLE!</div>
-<button id="gyro-btn">TAP TO ENABLE GYROSCOPE</button>
+
+<input type="file" id="upload-input" accept="image/*" multiple>
+<div id="toast"></div>
+
+<div id="overlay">
+  <div class="plaque">
+    <div class="screw tl"></div><div class="screw tr"></div>
+    <div class="screw bl"></div><div class="screw br"></div>
+    <div class="eyebrow">A Gallery Without Walls Between You And It</div>
+    <h1>The Infinite Gallery</h1>
+    <div class="infinity-mark">∞</div>
+    <p>Tilt your device to roll the marker through the room and view the pieces on display. Forward tilt rolls you forward, back tilts you back, and side to side turns the room around you.</p>
+    <div class="tilt-legend">
+      <div><span class="key">↑</span> Tilt forward — roll ahead</div>
+      <div><span class="key">↓</span> Tilt back — roll behind</div>
+      <div><span class="key">←</span> Tilt left — roll left</div>
+      <div><span class="key">→</span> Tilt right — roll right</div>
+    </div>
+    <button id="enter-btn">Enter the Gallery</button>
+    <div id="overlay-note">On desktop, use arrow keys or WASD instead of tilt.</div>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ─── SCENE SETUP ────────────────────────────────────────────────────────────
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a1008);
-scene.fog = new THREE.Fog(0x1a1008, 18, 35);
+(function(){
+  "use strict";
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.physicallyCorrectLights = true;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
-document.body.appendChild(renderer.domElement);
+  /* ============================================================
+     CONFIG
+  ============================================================ */
+  const ROOM_SIZE   = 52;      // interior width/depth
+  const WALL_H      = 11;
+  const WALL_T      = 1.2;
+  const BALL_R       = 0.62;
+  const ACCEL        = 26;      // tilt -> acceleration
+  const DAMPING      = 0.90;    // velocity damping per frame @60fps baseline
+  const MAX_SPEED    = 9;
+  const DEADZONE     = 0.06;
+  const CAM_DIST     = 6.4;
+  const CAM_HEIGHT   = 3.1;
+  const CAM_LERP     = 0.06;
+  const CAM_LOOK_LERP= 0.10;
 
-// ─── CAMERA ─────────────────────────────────────────────────────────────────
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
-// Camera offset relative to ball (follows ball)
-const CAM_OFFSET = new THREE.Vector3(0, 7, 6);
+  const wrap = document.getElementById('canvas-wrap');
 
-// ─── LIGHTING ────────────────────────────────────────────────────────────────
-// Warm ambient
-const ambient = new THREE.AmbientLight(0xffeedd, 0.4);
-scene.add(ambient);
+  /* ============================================================
+     RENDERER / SCENE / CAMERA
+  ============================================================ */
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x1c1720, 0.014);
 
-// Main overhead lamp (warm, casts shadows)
-const sunLight = new THREE.DirectionalLight(0xfff5e0, 2.5);
-sunLight.position.set(4, 10, 6);
-sunLight.castShadow = true;
-sunLight.shadow.mapSize.width = 2048;
-sunLight.shadow.mapSize.height = 2048;
-sunLight.shadow.camera.near = 0.5;
-sunLight.shadow.camera.far = 40;
-sunLight.shadow.camera.left = -10;
-sunLight.shadow.camera.right = 10;
-sunLight.shadow.camera.top = 10;
-sunLight.shadow.camera.bottom = -10;
-sunLight.shadow.bias = -0.001;
-scene.add(sunLight);
+  const camera = new THREE.PerspectiveCamera(58, window.innerWidth/window.innerHeight, 0.1, 300);
+  camera.position.set(0, CAM_HEIGHT + 1, CAM_DIST);
 
-// Cool fill light from opposite side
-const fillLight = new THREE.DirectionalLight(0xaac8ff, 0.6);
-fillLight.position.set(-5, 5, -4);
-scene.add(fillLight);
-
-// Rim light
-const rimLight = new THREE.PointLight(0xff9955, 1.5, 20);
-rimLight.position.set(0, 3, -6);
-scene.add(rimLight);
-
-// ─── TEXTURES ────────────────────────────────────────────────────────────────
-function makeWoodTexture() {
-  const c = document.createElement('canvas');
-  c.width = 512; c.height = 512;
-  const ctx = c.getContext('2d');
-
-  // Base warm wood color
-  ctx.fillStyle = '#8B5E3C';
-  ctx.fillRect(0, 0, 512, 512);
-
-  // Wood grain lines
-  for (let i = 0; i < 80; i++) {
-    const y = (i / 80) * 512;
-    const wave = Math.sin(i * 0.4) * 6;
-    ctx.beginPath();
-    ctx.moveTo(0, y + wave);
-    for (let x = 0; x < 512; x += 4) {
-      ctx.lineTo(x, y + Math.sin(x * 0.03 + i * 0.5) * 4 + wave);
-    }
-    const alpha = 0.08 + Math.random() * 0.12;
-    ctx.strokeStyle = `rgba(${i % 2 === 0 ? '60,30,10' : '180,120,60'},${alpha})`;
-    ctx.lineWidth = 1.5 + Math.random() * 2;
-    ctx.stroke();
-  }
-
-  // Knot
-  const grad = ctx.createRadialGradient(160, 200, 2, 160, 200, 28);
-  grad.addColorStop(0, 'rgba(50,25,10,0.7)');
-  grad.addColorStop(0.5, 'rgba(90,50,20,0.4)');
-  grad.addColorStop(1, 'rgba(139,94,60,0)');
-  ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.ellipse(160, 200, 28, 18, 0.3, 0, Math.PI * 2);
-  ctx.fill();
-
-  return new THREE.CanvasTexture(c);
-}
-
-function makeMetalTexture() {
-  const c = document.createElement('canvas');
-  c.width = 256; c.height = 256;
-  const ctx = c.getContext('2d');
-
-  const grad = ctx.createRadialGradient(100, 80, 5, 128, 128, 128);
-  grad.addColorStop(0, '#ffffff');
-  grad.addColorStop(0.3, '#d8e8f0');
-  grad.addColorStop(0.7, '#7a9ab0');
-  grad.addColorStop(1, '#3a5060');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 256, 256);
-
-  // Brushed streaks
-  for (let i = 0; i < 40; i++) {
-    const y = Math.random() * 256;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(256, y + (Math.random() - 0.5) * 8);
-    ctx.strokeStyle = `rgba(255,255,255,${Math.random() * 0.06})`;
-    ctx.lineWidth = Math.random() * 2;
-    ctx.stroke();
-  }
-  return new THREE.CanvasTexture(c);
-}
-
-function makeWoodNormalTexture() {
-  const c = document.createElement('canvas');
-  c.width = 512; c.height = 512;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#8080ff'; // flat normal (pointing up)
-  ctx.fillRect(0, 0, 512, 512);
-  for (let i = 0; i < 80; i++) {
-    const y = (i / 80) * 512;
-    ctx.beginPath();
-    for (let x = 0; x < 512; x++) {
-      ctx.lineTo(x, y + Math.sin(x * 0.03 + i * 0.5) * 3);
-    }
-    ctx.strokeStyle = `rgba(100,100,255,0.3)`;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-  return new THREE.CanvasTexture(c);
-}
-
-const woodTex = makeWoodTexture();
-woodTex.wrapS = woodTex.wrapT = THREE.RepeatWrapping;
-woodTex.repeat.set(2, 2);
-
-const metalTex = makeMetalTexture();
-const woodNormal = makeWoodNormalTexture();
-woodNormal.wrapS = woodNormal.wrapT = THREE.RepeatWrapping;
-woodNormal.repeat.set(2, 2);
-
-// ─── BOARD ───────────────────────────────────────────────────────────────────
-const BOARD_W = 10;
-const BOARD_H = 0.4;
-const BOARD_D = 10;
-
-const boardGroup = new THREE.Group();
-scene.add(boardGroup);
-
-// Floor
-const floorGeo = new THREE.BoxGeometry(BOARD_W, BOARD_H, BOARD_D);
-const floorMat = new THREE.MeshStandardMaterial({
-  map: woodTex,
-  normalMap: woodNormal,
-  normalScale: new THREE.Vector2(0.8, 0.8),
-  roughness: 0.75,
-  metalness: 0.05,
-});
-const floor = new THREE.Mesh(floorGeo, floorMat);
-floor.receiveShadow = true;
-floor.position.y = -BOARD_H / 2;
-boardGroup.add(floor);
-
-// Walls (4 sides)
-const wallMat = new THREE.MeshStandardMaterial({
-  map: woodTex,
-  normalMap: woodNormal,
-  normalScale: new THREE.Vector2(0.5, 0.5),
-  roughness: 0.8,
-  metalness: 0.02,
-  color: 0xc49a5a,
-});
-
-function makeWall(w, h, d, x, y, z) {
-  const geo = new THREE.BoxGeometry(w, h, d);
-  const mesh = new THREE.Mesh(geo, wallMat);
-  mesh.position.set(x, y, z);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  boardGroup.add(mesh);
-  return mesh;
-}
-
-const WALL_H = 0.5;
-const WALL_T = 0.3;
-const HW = BOARD_W / 2;
-const HD = BOARD_D / 2;
-
-makeWall(BOARD_W, WALL_H, WALL_T, 0, WALL_H/2, -HD);   // back
-makeWall(BOARD_W, WALL_H, WALL_T, 0, WALL_H/2,  HD);   // front
-makeWall(WALL_T, WALL_H, BOARD_D, -HW, WALL_H/2, 0);   // left
-makeWall(WALL_T, WALL_H, BOARD_D,  HW, WALL_H/2, 0);   // right
-
-// ─── HOLE ────────────────────────────────────────────────────────────────────
-const HOLE_R = 0.42;
-const holePos = new THREE.Vector3(2.5, 0, 2.5); // goal position on board
-
-// Dark circle to represent hole
-const holeGeo = new THREE.CircleGeometry(HOLE_R, 32);
-const holeMat = new THREE.MeshStandardMaterial({ color: 0x050302, roughness: 1, metalness: 0 });
-const holeMesh = new THREE.Mesh(holeGeo, holeMat);
-holeMesh.rotation.x = -Math.PI / 2;
-holeMesh.position.set(holePos.x, 0.01, holePos.z);
-boardGroup.add(holeMesh);
-
-// Hole ring
-const ringGeo = new THREE.TorusGeometry(HOLE_R, 0.04, 8, 32);
-const ringMat = new THREE.MeshStandardMaterial({ color: 0x1a1008, roughness: 0.9, metalness: 0.1 });
-const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-ringMesh.rotation.x = -Math.PI / 2;
-ringMesh.position.set(holePos.x, 0.02, holePos.z);
-boardGroup.add(ringMesh);
-
-// ─── BALL ────────────────────────────────────────────────────────────────────
-const BALL_R = 0.28;
-const ballGeo = new THREE.SphereGeometry(BALL_R, 32, 32);
-const ballMat = new THREE.MeshStandardMaterial({
-  map: metalTex,
-  roughness: 0.08,
-  metalness: 0.95,
-  envMapIntensity: 1.5,
-  color: 0xc8dde8,
-});
-const ball = new THREE.Mesh(ballGeo, ballMat);
-ball.castShadow = true;
-ball.position.set(-3, BALL_R, -3);
-boardGroup.add(ball);
-
-// Ball shadow (fake soft shadow disc)
-const shadowGeo = new THREE.CircleGeometry(BALL_R * 0.9, 24);
-const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 });
-const ballShadow = new THREE.Mesh(shadowGeo, shadowMat);
-ballShadow.rotation.x = -Math.PI / 2;
-ballShadow.position.y = 0.005;
-boardGroup.add(ballShadow);
-
-// ─── PHYSICS STATE ───────────────────────────────────────────────────────────
-const ballPos = new THREE.Vector3(-3, BALL_R, -3);
-const ballVel = new THREE.Vector3(0, 0, 0);
-let tiltX = 0; // board tilt around X axis (controls Z movement)
-let tiltZ = 0; // board tilt around Z axis (controls X movement)
-const MAX_TILT = 0.22; // radians
-const TILT_SPEED = 0.008;
-const GRAVITY = 9.8;
-const FRICTION = 0.985;
-let won = false;
-
-// ─── INPUT ───────────────────────────────────────────────────────────────────
-const keys = {};
-window.addEventListener('keydown', e => { keys[e.code] = true; });
-window.addEventListener('keyup',   e => { keys[e.code] = false; });
-
-// ─── GYROSCOPE ───────────────────────────────────────────────────────────────
-let gyroActive = false;
-let gyroBase = { beta: null, gamma: null }; // calibration baseline
-let gyroTiltX = 0;
-let gyroTiltZ = 0;
-const GYRO_SENSITIVITY = 0.006; // radians per degree of device tilt
-const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-const gyroBtn = document.getElementById('gyro-btn');
-const controlsHint = document.getElementById('controls-hint');
-
-function onDeviceOrientation(e) {
-  if (e.beta === null || e.gamma === null) return;
-
-  // Calibrate on first reading
-  if (gyroBase.beta === null) {
-    gyroBase.beta  = e.beta;
-    gyroBase.gamma = e.gamma;
-  }
-
-  // Delta from baseline
-  let dBeta  = e.beta  - gyroBase.beta;   // forward/back tilt  → tiltX (Z motion)
-  let dGamma = e.gamma - gyroBase.gamma;  // left/right tilt    → tiltZ (X motion)
-
-  // Clamp to ±30 degrees input range then map to MAX_TILT
-  dBeta  = Math.max(-30, Math.min(30, dBeta));
-  dGamma = Math.max(-30, Math.min(30, dGamma));
-
-  // beta  = phone tilts forward (top away) → ball rolls forward (+Z) → positive tiltX
-  // gamma = phone tilts right            → ball rolls right  (+X) → negative tiltZ
-  gyroTiltX = -(dBeta  / 30) * MAX_TILT;
-  gyroTiltZ =  (dGamma / 30) * MAX_TILT;
-}
-
-function enableGyro() {
-  // iOS 13+ requires explicit permission
-  if (typeof DeviceOrientationEvent !== 'undefined' &&
-      typeof DeviceOrientationEvent.requestPermission === 'function') {
-    DeviceOrientationEvent.requestPermission()
-      .then(state => {
-        if (state === 'granted') {
-          window.addEventListener('deviceorientation', onDeviceOrientation, true);
-          gyroActive = true;
-          gyroBtn.style.display = 'none';
-          controlsHint.textContent = 'TILT YOUR DEVICE — TAP TO RECALIBRATE';
-          gyroBase = { beta: null, gamma: null }; // reset calibration
-        } else {
-          gyroBtn.textContent = 'PERMISSION DENIED — USE ARROW KEYS';
-        }
-      })
-      .catch(() => {
-        gyroBtn.textContent = 'GYRO UNAVAILABLE — USE ARROW KEYS';
-      });
-  } else {
-    // Android / older browsers — no permission needed
-    window.addEventListener('deviceorientation', onDeviceOrientation, true);
-    gyroActive = true;
-    gyroBtn.style.display = 'none';
-    controlsHint.textContent = 'TILT YOUR DEVICE — TAP TO RECALIBRATE';
-    gyroBase = { beta: null, gamma: null };
-  }
-}
-
-// Recalibrate on tap anywhere (after gyro is active)
-window.addEventListener('touchstart', () => {
-  if (gyroActive) gyroBase = { beta: null, gamma: null };
-}, { passive: true });
-
-if (isMobile) {
-  gyroBtn.style.display = 'block';
-  gyroBtn.addEventListener('click', enableGyro);
-  controlsHint.textContent = 'TAP THE BUTTON BELOW TO USE GYROSCOPE';
-}
-
-// ─── RESIZE ──────────────────────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
-});
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  wrap.appendChild(renderer.domElement);
 
-// ─── GAME LOOP ───────────────────────────────────────────────────────────────
-const clock = new THREE.Clock();
-const tiltDisplay = document.getElementById('tilt-display');
-const winMsg = document.getElementById('win-msg');
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
 
-function update(dt) {
-  if (won) return;
+  /* ============================================================
+     LIGHTING — soft museum lighting
+  ============================================================ */
+  scene.add(new THREE.AmbientLight(0x4a4250, 0.9));
 
-  // Input → tilt
-  if (gyroActive) {
-    // Smooth gyro tilt toward target
-    tiltX += (gyroTiltX - tiltX) * 0.15;
-    tiltZ += (gyroTiltZ - tiltZ) * 0.15;
-  } else {
-    if (keys['ArrowUp']    || keys['KeyW']) tiltX = Math.max(tiltX - TILT_SPEED, -MAX_TILT);
-    if (keys['ArrowDown']  || keys['KeyS']) tiltX = Math.min(tiltX + TILT_SPEED,  MAX_TILT);
-    if (keys['ArrowLeft']  || keys['KeyA']) tiltZ = Math.max(tiltZ - TILT_SPEED, -MAX_TILT);
-    if (keys['ArrowRight'] || keys['KeyD']) tiltZ = Math.min(tiltZ + TILT_SPEED,  MAX_TILT);
+  const key = new THREE.DirectionalLight(0xfff1dc, 0.9);
+  key.position.set(18, 28, 12);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.left = -ROOM_SIZE/1.6;
+  key.shadow.camera.right = ROOM_SIZE/1.6;
+  key.shadow.camera.top = ROOM_SIZE/1.6;
+  key.shadow.camera.bottom = -ROOM_SIZE/1.6;
+  key.shadow.camera.far = 80;
+  key.shadow.bias = -0.0015;
+  scene.add(key);
 
-    // Tilt spring-back when no input
-    if (!keys['ArrowUp'] && !keys['KeyW'] && !keys['ArrowDown'] && !keys['KeyS'])
-      tiltX *= 0.92;
-    if (!keys['ArrowLeft'] && !keys['KeyA'] && !keys['ArrowRight'] && !keys['KeyD'])
-      tiltZ *= 0.92;
+  const fill = new THREE.HemisphereLight(0x3a3444, 0x231c14, 0.55);
+  scene.add(fill);
+
+  /* ============================================================
+     PROCEDURAL TEXTURES (canvas)
+  ============================================================ */
+  function makeCanvas(w,h){
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    return c;
   }
 
-  // Gravity projected onto tilted plane → acceleration
-  const accelX = Math.sin(tiltZ) * GRAVITY;
-  const accelZ = Math.sin(tiltX) * GRAVITY;
-
-  ballVel.x += accelX * dt;
-  ballVel.z += accelZ * dt;
-  ballVel.x *= FRICTION;
-  ballVel.z *= FRICTION;
-
-  ballPos.x += ballVel.x * dt;
-  ballPos.z += ballVel.z * dt;
-
-  // Board boundary collision (simple AABB)
-  const bx = HW - WALL_T / 2 - BALL_R;
-  const bz = HD - WALL_T / 2 - BALL_R;
-  if (ballPos.x > bx)  { ballPos.x = bx;  ballVel.x *= -0.4; }
-  if (ballPos.x < -bx) { ballPos.x = -bx; ballVel.x *= -0.4; }
-  if (ballPos.z > bz)  { ballPos.z = bz;  ballVel.z *= -0.4; }
-  if (ballPos.z < -bz) { ballPos.z = -bz; ballVel.z *= -0.4; }
-
-  // Check hole
-  const dx = ballPos.x - holePos.x;
-  const dz = ballPos.z - holePos.z;
-  if (Math.sqrt(dx*dx + dz*dz) < HOLE_R * 0.8) {
-    won = true;
-    winMsg.style.display = 'block';
-    // Animate ball dropping
-    gsapBallDrop();
+  function woodFloorTexture(){
+    const c = makeCanvas(1024,1024);
+    const ctx = c.getContext('2d');
+    const planks = 16;
+    const ph = c.height/planks;
+    for(let i=0;i<planks;i++){
+      const base = 60 + Math.random()*22;
+      const r = base+30, g = base+14, b = base-6;
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(0, i*ph, c.width, ph);
+      // grain streaks
+      for(let s=0; s<26; s++){
+        const y = i*ph + Math.random()*ph;
+        ctx.strokeStyle = `rgba(30,16,8,${0.05+Math.random()*0.08})`;
+        ctx.lineWidth = 0.6+Math.random()*1.2;
+        ctx.beginPath();
+        ctx.moveTo(0,y);
+        let cx = 0;
+        while(cx < c.width){
+          cx += 40+Math.random()*60;
+          ctx.lineTo(cx, y + (Math.random()-0.5)*6);
+        }
+        ctx.stroke();
+      }
+      // plank seam
+      ctx.fillStyle = 'rgba(15,8,4,0.5)';
+      ctx.fillRect(0, i*ph, c.width, 2);
+      // occasional cross-seams
+      if(Math.random()>0.4){
+        const sx = Math.random()*c.width;
+        ctx.fillRect(sx, i*ph, 2, ph);
+      }
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(ROOM_SIZE/6, ROOM_SIZE/6);
+    tex.anisotropy = 8;
+    return tex;
   }
 
-  // Roll the ball visually
-  const speed = ballVel.length();
-  if (speed > 0.001) {
-    ball.rotateOnWorldAxis(
-      new THREE.Vector3(-ballVel.z, 0, ballVel.x).normalize(),
-      (speed * dt) / BALL_R
+  function wallTexture(){
+    const c = makeCanvas(512,512);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#2a2530';
+    ctx.fillRect(0,0,c.width,c.height);
+    const grd = ctx.createLinearGradient(0,0,0,c.height);
+    grd.addColorStop(0,'rgba(255,255,255,0.03)');
+    grd.addColorStop(0.5,'rgba(0,0,0,0.0)');
+    grd.addColorStop(1,'rgba(0,0,0,0.12)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0,0,c.width,c.height);
+    // subtle noise
+    const id = ctx.getImageData(0,0,c.width,c.height);
+    for(let i=0;i<id.data.length;i+=4){
+      const n = (Math.random()-0.5)*10;
+      id.data[i]+=n; id.data[i+1]+=n; id.data[i+2]+=n;
+    }
+    ctx.putImageData(id,0,0);
+    // brass picture rail line
+    ctx.fillStyle = 'rgba(184,137,79,0.18)';
+    ctx.fillRect(0, c.height*0.22, c.width, 3);
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(ROOM_SIZE/10, WALL_H/10);
+    return tex;
+  }
+
+  function frameWoodTexture(){
+    const c = makeCanvas(256,256);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#4a2d18';
+    ctx.fillRect(0,0,c.width,c.height);
+    for(let i=0;i<40;i++){
+      ctx.strokeStyle = `rgba(20,10,4,${0.08+Math.random()*0.12})`;
+      ctx.lineWidth = 1+Math.random()*1.5;
+      ctx.beginPath();
+      const y = Math.random()*c.height;
+      ctx.moveTo(0,y);
+      ctx.lineTo(c.width, y + (Math.random()-0.5)*20);
+      ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(4,1);
+    return tex;
+  }
+
+  function placeholderArtTexture(seedIndex){
+    const c = makeCanvas(512,384);
+    const ctx = c.getContext('2d');
+    const palettes = [
+      ['#8a6b4f','#c9a876','#3d2c1e'],
+      ['#5c6b5f','#a3b79a','#28331f'],
+      ['#7a4b4b','#c98d7a','#3a1f1f'],
+      ['#4b5a7a','#8fa3c9','#1f2a3a'],
+      ['#6b5b7a','#b39fc9','#2a1f3a'],
+      ['#7a6b3a','#c9b36f','#3a2f1a'],
+    ];
+    const p = palettes[seedIndex % palettes.length];
+    ctx.fillStyle = p[0];
+    ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle = p[1];
+    ctx.beginPath();
+    ctx.ellipse(c.width*0.5, c.height*0.55, c.width*0.32, c.height*0.34, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = p[2];
+    ctx.lineWidth = 6;
+    for(let i=0;i<5;i++){
+      ctx.beginPath();
+      ctx.moveTo(0, c.height*(0.15+i*0.15));
+      ctx.lineTo(c.width, c.height*(0.05+i*0.17));
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.font = '300 20px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('untitled study, no. ' + (seedIndex+1), c.width/2, c.height-24);
+    return new THREE.CanvasTexture(c);
+  }
+
+  function infinityBallTexture(){
+    const c = makeCanvas(1024,512);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#e9e2d0';
+    ctx.fillRect(0,0,c.width,c.height);
+    // subtle radial shading to fake sphere occlusion on the flat map
+    const grd = ctx.createRadialGradient(c.width/2,c.height/2,10,c.width/2,c.height/2,c.width/2);
+    grd.addColorStop(0,'rgba(255,255,255,0.15)');
+    grd.addColorStop(1,'rgba(0,0,0,0.10)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0,0,c.width,c.height);
+
+    function drawInfinity(cx,cy,scale){
+      ctx.save();
+      ctx.translate(cx,cy);
+      ctx.scale(scale,scale);
+      ctx.strokeStyle = '#8a6a35';
+      ctx.lineWidth = 14;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for(let t=0;t<=Math.PI*2+0.01;t+=0.02){
+        const x = 80*Math.cos(t) / (1+Math.sin(t)*Math.sin(t));
+        const y = 80*Math.sin(t)*Math.cos(t) / (1+Math.sin(t)*Math.sin(t));
+        if(t===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    // repeat around equator band so the mark is visible while rolling
+    drawInfinity(c.width*0.25, c.height*0.5, 1.15);
+    drawInfinity(c.width*0.75, c.height*0.5, 1.15);
+    drawInfinity(c.width*0.0,  c.height*0.5, 1.15);
+    drawInfinity(c.width*1.0,  c.height*0.5, 1.15);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    return tex;
+  }
+
+  /* ============================================================
+     FLOOR
+  ============================================================ */
+  const floorTex = woodFloorTexture();
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(ROOM_SIZE, ROOM_SIZE, 1, 1),
+    new THREE.MeshStandardMaterial({map:floorTex, roughness:0.72, metalness:0.05})
+  );
+  floor.rotation.x = -Math.PI/2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // gentle skirting/baseboard so the floor-wall seam reads solid (purely visual, no gap)
+  const baseboardMat = new THREE.MeshStandardMaterial({color:0x1c130c, roughness:0.8});
+
+  /* ============================================================
+     WALLS + FRAMES
+  ============================================================ */
+  const wallTex = wallTexture();
+  const wallMat = new THREE.MeshStandardMaterial({map:wallTex, roughness:0.95, metalness:0.0});
+  const frameWoodTex = frameWoodTexture();
+  const frameMat = new THREE.MeshStandardMaterial({map:frameWoodTex, roughness:0.6, metalness:0.08});
+
+  const half = ROOM_SIZE/2;
+
+  function addWall(w,h,d,pos){
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wallMat);
+    mesh.position.copy(pos);
+    mesh.position.y = h/2;
+    mesh.receiveShadow = true;
+    mesh.castShadow = false;
+    scene.add(mesh);
+
+    const base = new THREE.Mesh(new THREE.BoxGeometry(w+0.05,0.32,d+0.05), baseboardMat);
+    base.position.set(pos.x, 0.16, pos.z);
+    if(w < d){ base.scale.set(1,1,1); }
+    scene.add(base);
+  }
+
+  addWall(ROOM_SIZE, WALL_H, WALL_T, new THREE.Vector3(0,0,-half));           // north
+  addWall(ROOM_SIZE, WALL_H, WALL_T, new THREE.Vector3(0,0, half));           // south
+  addWall(WALL_T, WALL_H, ROOM_SIZE, new THREE.Vector3(-half,0,0));           // west
+  addWall(WALL_T, WALL_H, ROOM_SIZE, new THREE.Vector3( half,0,0));           // east
+
+  // Frame slots: definitions of {position, rotationY (facing inward), width, height}
+  const frameSlots = [];
+  const inset = WALL_T/2 + 0.04;
+  const frameY = WALL_H*0.5;
+  const spread = [-half*0.55, 0, half*0.55];
+
+  spread.forEach((x,i)=>{
+    const big = i===1;
+    frameSlots.push({ x, y:frameY, z:-half+inset, rotY:0,            w: big?5.6:4.2, h: big?4.0:3.1 }); // north, normal +Z
+  });
+  spread.forEach((x,i)=>{
+    const big = i===1;
+    frameSlots.push({ x, y:frameY, z: half-inset, rotY:Math.PI,      w: big?5.6:4.2, h: big?4.0:3.1 }); // south, normal -Z
+  });
+  spread.forEach((z,i)=>{
+    const big = i===1;
+    frameSlots.push({ x:-half+inset, y:frameY, z, rotY:Math.PI/2,    w: big?5.6:4.2, h: big?4.0:3.1 }); // west, normal +X
+  });
+  spread.forEach((z,i)=>{
+    const big = i===1;
+    frameSlots.push({ x: half-inset, y:frameY, z, rotY:-Math.PI/2,   w: big?5.6:4.2, h: big?4.0:3.1 }); // east, normal -X
+  });
+
+  const artMeshes = []; // to swap textures on upload
+
+  function buildFrame(slot, index){
+    const group = new THREE.Group();
+    group.position.set(slot.x, slot.y, slot.z);
+    group.rotation.y = slot.rotY;
+
+    const border = 0.32;
+    const depth = 0.16;
+
+    // frame border (four strips)
+    const strips = [
+      {w: slot.w+border*2, h: border, x:0, y: slot.h/2+border/2},
+      {w: slot.w+border*2, h: border, x:0, y: -slot.h/2-border/2},
+      {w: border, h: slot.h, x: slot.w/2+border/2, y:0},
+      {w: border, h: slot.h, x: -slot.w/2-border/2, y:0},
+    ];
+    strips.forEach(s=>{
+      const m = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h, depth), frameMat);
+      m.position.set(s.x, s.y, depth/2 - 0.02);
+      m.castShadow = true; m.receiveShadow = true;
+      group.add(m);
+    });
+
+    // backing panel (slightly recessed, dark)
+    const backing = new THREE.Mesh(
+      new THREE.PlaneGeometry(slot.w+border*0.3, slot.h+border*0.3),
+      new THREE.MeshStandardMaterial({color:0x0e0b0a, roughness:0.9})
     );
+    backing.position.z = -0.01;
+    group.add(backing);
+
+    // artwork plane
+    const artTex = placeholderArtTexture(index);
+    const art = new THREE.Mesh(
+      new THREE.PlaneGeometry(slot.w, slot.h),
+      new THREE.MeshStandardMaterial({map:artTex, roughness:0.85})
+    );
+    art.position.z = 0.02;
+    art.castShadow = false;
+    art.receiveShadow = true;
+    group.add(art);
+    artMeshes.push(art);
+
+    // small brass placard beneath
+    const placardGeo = new THREE.PlaneGeometry(slot.w*0.4, 0.32);
+    const placard = new THREE.Mesh(placardGeo, new THREE.MeshStandardMaterial({color:0x2a2530, roughness:0.6, metalness:0.2}));
+    placard.position.set(0, -slot.h/2 - border - 0.32, 0.02);
+    group.add(placard);
+
+    scene.add(group);
+
+    // small accent spotlight aimed at every third frame for gallery ambience without perf hit
+    if(index % 3 === 0){
+      const spot = new THREE.PointLight(0xffe6c2, 0.5, 9, 2);
+      const dir = new THREE.Vector3(0,0,1).applyEuler(new THREE.Euler(0, slot.rotY,0));
+      spot.position.copy(group.position).addScaledVector(dir, 2.6);
+      spot.position.y += 1.4;
+      scene.add(spot);
+    }
   }
 
-  // Update positions
-  ball.position.copy(ballPos);
-  ballShadow.position.x = ballPos.x;
-  ballShadow.position.z = ballPos.z;
+  frameSlots.forEach((slot,i)=>buildFrame(slot,i));
 
-  // Board tilt
-  boardGroup.rotation.x = tiltX;
-  boardGroup.rotation.z = tiltZ;
+  /* ============================================================
+     BALL
+  ============================================================ */
+  const ballTex = infinityBallTexture();
+  const ball = new THREE.Mesh(
+    new THREE.SphereGeometry(BALL_R, 48, 48),
+    new THREE.MeshStandardMaterial({map:ballTex, roughness:0.35, metalness:0.15})
+  );
+  ball.position.set(0, BALL_R, 6);
+  ball.castShadow = true;
+  ball.receiveShadow = true;
+  scene.add(ball);
 
-  // HUD
-  tiltDisplay.textContent =
-    `TILT  X ${(tiltX * 180 / Math.PI).toFixed(1)}°  /  Z ${(tiltZ * 180 / Math.PI).toFixed(1)}°`;
-}
+  // soft contact shadow blob (helps ground the ball visually, no physics implication)
+  const shadowBlob = new THREE.Mesh(
+    new THREE.CircleGeometry(BALL_R*1.15, 24),
+    new THREE.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0.28})
+  );
+  shadowBlob.rotation.x = -Math.PI/2;
+  shadowBlob.position.y = 0.01;
+  scene.add(shadowBlob);
 
-let dropT = 0;
-function gsapBallDrop() {
-  // Simple drop animation without GSAP
-  const startY = ballPos.y;
-  const animate = () => {
-    dropT += 0.04;
-    ball.position.y = startY - dropT * dropT * 2;
-    ball.scale.setScalar(Math.max(0.01, 1 - dropT * 0.8));
-    if (ball.position.y > -2) requestAnimationFrame(animate);
-  };
-  animate();
-}
+  /* ============================================================
+     INPUT — gyroscope, keyboard, touch joystick
+  ============================================================ */
+  const tilt = {forward:0, right:0};      // normalized -1..1
+  const keys = {up:false,down:false,left:false,right:false};
+  let baseline = {beta:0, gamma:0};
+  let gyroActive = false;
 
-// ─── CAMERA FOLLOW ───────────────────────────────────────────────────────────
-const camTarget = new THREE.Vector3();
-const camPos    = new THREE.Vector3();
+  function normalize(v, lo, hi){
+    return Math.max(-1, Math.min(1, v/hi));
+  }
 
-function updateCamera() {
-  // World position of ball (board is rotated so we need world coords)
-  const ballWorld = new THREE.Vector3();
-  ball.getWorldPosition(ballWorld);
+  function onDeviceOrientation(e){
+    if(e.beta === null || e.gamma === null) return;
+    const beta = e.beta - baseline.beta;   // front-back
+    const gamma = e.gamma - baseline.gamma; // left-right
+    let f = normalize(beta, 0, 32);
+    let r = normalize(gamma, 0, 32);
+    if(Math.abs(f) < DEADZONE) f = 0;
+    if(Math.abs(r) < DEADZONE) r = 0;
+    tilt.forward = f;
+    tilt.right = r;
+  }
 
-  // Smooth camera follow
-  camTarget.lerp(ballWorld, 0.08);
-  const desiredCamPos = camTarget.clone().add(CAM_OFFSET);
-  camera.position.lerp(desiredCamPos, 0.08);
-  camera.lookAt(camTarget);
-}
+  function calibrate(){
+    // capture a short-lived listener to read current orientation as neutral baseline
+    function once(e){
+      if(e.beta !== null){ baseline.beta = e.beta; baseline.gamma = e.gamma; }
+      window.removeEventListener('deviceorientation', once);
+      showToast('Recentered — this angle is now "flat".');
+    }
+    window.addEventListener('deviceorientation', once);
+  }
 
-// ─── RENDER LOOP ─────────────────────────────────────────────────────────────
-function render() {
-  requestAnimationFrame(render);
-  const dt = Math.min(clock.getDelta(), 0.05);
-  update(dt);
-  updateCamera();
-  renderer.render(scene, camera);
-}
+  function enableGyro(){
+    if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      DeviceOrientationEvent.requestPermission().then(state=>{
+        if(state === 'granted'){
+          window.addEventListener('deviceorientation', onDeviceOrientation);
+          gyroActive = true;
+          calibrate();
+        } else {
+          showJoystick();
+        }
+      }).catch(()=>{ showJoystick(); });
+    } else if(typeof DeviceOrientationEvent !== 'undefined'){
+      window.addEventListener('deviceorientation', onDeviceOrientation);
+      gyroActive = true;
+      calibrate();
+    } else {
+      showJoystick();
+    }
+  }
 
-render();
+  // Keyboard fallback (desktop)
+  window.addEventListener('keydown', e=>{
+    switch(e.key){
+      case 'ArrowUp': case 'w': case 'W': keys.up=true; break;
+      case 'ArrowDown': case 's': case 'S': keys.down=true; break;
+      case 'ArrowLeft': case 'a': case 'A': keys.left=true; break;
+      case 'ArrowRight': case 'd': case 'D': keys.right=true; break;
+    }
+  });
+  window.addEventListener('keyup', e=>{
+    switch(e.key){
+      case 'ArrowUp': case 'w': case 'W': keys.up=false; break;
+      case 'ArrowDown': case 's': case 'S': keys.down=false; break;
+      case 'ArrowLeft': case 'a': case 'A': keys.left=false; break;
+      case 'ArrowRight': case 'd': case 'D': keys.right=false; break;
+    }
+  });
+
+  // Touch joystick fallback
+  const joystick = document.getElementById('joystick');
+  const knob = document.getElementById('joystick-knob');
+  let joyActive = false, joyCenter = {x:0,y:0};
+  const JOY_R = 44;
+
+  function showJoystick(){ joystick.classList.add('show'); }
+
+  joystick.addEventListener('pointerdown', e=>{
+    joyActive = true;
+    const rect = joystick.getBoundingClientRect();
+    joyCenter = {x:rect.left+rect.width/2, y:rect.top+rect.height/2};
+    joystick.setPointerCapture(e.pointerId);
+  });
+  joystick.addEventListener('pointermove', e=>{
+    if(!joyActive) return;
+    let dx = e.clientX - joyCenter.x;
+    let dy = e.clientY - joyCenter.y;
+    const dist = Math.min(JOY_R, Math.hypot(dx,dy));
+    const ang = Math.atan2(dy,dx);
+    dx = Math.cos(ang)*dist; dy = Math.sin(ang)*dist;
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    tilt.right = dx/JOY_R;
+    tilt.forward = -dy/JOY_R;
+  });
+  function joyEnd(){
+    joyActive = false;
+    knob.style.transform = 'translate(-50%,-50%)';
+    if(!gyroActive){ tilt.forward = 0; tilt.right = 0; }
+  }
+  joystick.addEventListener('pointerup', joyEnd);
+  joystick.addEventListener('pointercancel', joyEnd);
+
+  function updateTiltFromKeys(){
+    if(gyroActive || joyActive) return;
+    let f=0,r=0;
+    if(keys.up) f+=1; if(keys.down) f-=1;
+    if(keys.right) r+=1; if(keys.left) r-=1;
+    tilt.forward = f; tilt.right = r;
+  }
+
+  /* ============================================================
+     UI wiring
+  ============================================================ */
+  const overlay = document.getElementById('overlay');
+  const hud = document.getElementById('hud');
+  const enterBtn = document.getElementById('enter-btn');
+  const recenterBtn = document.getElementById('recenter-btn');
+  const uploadBtn = document.getElementById('upload-btn');
+  const uploadInput = document.getElementById('upload-input');
+  const gaugeDot = document.getElementById('gauge-dot');
+  const toast = document.getElementById('toast');
+
+  let toastTimer = null;
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>toast.classList.remove('show'), 2200);
+  }
+
+  enterBtn.addEventListener('click', ()=>{
+    overlay.classList.add('hidden');
+    hud.classList.add('active');
+    enableGyro();
+    if(!('ontouchstart' in window)){
+      showToast('Use arrow keys or WASD to roll.');
+    }
+    renderer.domElement.focus && renderer.domElement.focus();
+  });
+
+  recenterBtn.addEventListener('click', ()=>{
+    if(gyroActive){ calibrate(); }
+    else { showToast('Gyroscope not active on this device.'); }
+  });
+
+  uploadBtn.addEventListener('click', ()=> uploadInput.click());
+  uploadInput.addEventListener('change', (e)=>{
+    const files = Array.from(e.target.files || []).slice(0, artMeshes.length);
+    if(files.length === 0) return;
+    let loaded = 0;
+    files.forEach((file, i)=>{
+      const reader = new FileReader();
+      reader.onload = (ev)=>{
+        const img = new Image();
+        img.onload = ()=>{
+          const tex = new THREE.Texture(img);
+          tex.needsUpdate = true;
+          tex.encoding = THREE.sRGBEncoding;
+          artMeshes[i].material.map = tex;
+          artMeshes[i].material.needsUpdate = true;
+          loaded++;
+          if(loaded === files.length) showToast(`Hung ${loaded} piece${loaded>1?'s':''} on the wall.`);
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  });
+
+  /* ============================================================
+     PHYSICS + CAMERA LOOP
+  ============================================================ */
+  const velocity = new THREE.Vector3(0,0,0);
+  let headingAngle = Math.PI; // camera-facing azimuth, radians; start looking toward -Z (into gallery)
+  const boundLimit = half - WALL_T/2 - BALL_R - 0.02;
+
+  const clock = new THREE.Clock();
+
+  function tick(){
+    requestAnimationFrame(tick);
+    const dt = Math.min(clock.getDelta(), 0.05);
+
+    updateTiltFromKeys();
+
+    // gauge UI
+    gaugeDot.style.transform = `translate(calc(-50% + ${tilt.right*38}px), calc(-50% + ${-tilt.forward*38}px))`;
+
+    // --- movement: world-fixed axes, forward = -Z, right = +X ---
+    const moveDir = new THREE.Vector3(tilt.right, 0, -tilt.forward);
+    const mag = moveDir.length();
+
+    if(mag > DEADZONE){
+      moveDir.normalize();
+      velocity.x += moveDir.x * ACCEL * dt;
+      velocity.z += moveDir.z * ACCEL * dt;
+      const targetAngle = Math.atan2(moveDir.x, -moveDir.z); // camera should look along moveDir
+      headingAngle = lerpAngle(headingAngle, targetAngle, 0.12);
+    }
+
+    // damping (frame-rate independent-ish)
+    const dampFactor = Math.pow(DAMPING, dt*60);
+    velocity.x *= dampFactor;
+    velocity.z *= dampFactor;
+
+    const speed = Math.hypot(velocity.x, velocity.z);
+    if(speed > MAX_SPEED){
+      velocity.x = velocity.x/speed*MAX_SPEED;
+      velocity.z = velocity.z/speed*MAX_SPEED;
+    }
+
+    // integrate position
+    let nx = ball.position.x + velocity.x*dt;
+    let nz = ball.position.z + velocity.z*dt;
+
+    // clamp within room bounds (solid walls — the platform has no gaps, this just stops the ball at the wall)
+    if(nx > boundLimit){ nx = boundLimit; velocity.x = 0; }
+    if(nx < -boundLimit){ nx = -boundLimit; velocity.x = 0; }
+    if(nz > boundLimit){ nz = boundLimit; velocity.z = 0; }
+    if(nz < -boundLimit){ nz = -boundLimit; velocity.z = 0; }
+
+    const dx = nx - ball.position.x;
+    const dz = nz - ball.position.z;
+    ball.position.x = nx;
+    ball.position.z = nz;
+    ball.position.y = BALL_R; // fixed height — solid platform, nothing to fall through
+
+    // rolling rotation
+    const rollDist = Math.hypot(dx,dz);
+    if(rollDist > 0.00001){
+      const axis = new THREE.Vector3(-dz, 0, dx).normalize();
+      const angle = rollDist / BALL_R;
+      ball.rotateOnWorldAxis(axis, angle);
+    }
+
+    shadowBlob.position.x = ball.position.x;
+    shadowBlob.position.z = ball.position.z;
+
+    // --- camera: third-person, azimuth follows tilt heading ---
+    const camX = ball.position.x - Math.sin(headingAngle)*CAM_DIST;
+    const camZ = ball.position.z + Math.cos(headingAngle)*CAM_DIST;
+    const desired = new THREE.Vector3(camX, ball.position.y + CAM_HEIGHT, camZ);
+
+    camera.position.lerp(desired, CAM_LERP);
+    // keep camera inside room too
+    camera.position.x = Math.max(-half+0.6, Math.min(half-0.6, camera.position.x));
+    camera.position.z = Math.max(-half+0.6, Math.min(half-0.6, camera.position.z));
+    camera.position.y = Math.max(1.2, Math.min(WALL_H-0.5, camera.position.y));
+
+    const lookTarget = new THREE.Vector3(ball.position.x, ball.position.y+0.4, ball.position.z);
+    const currentLook = camera.userData.look || lookTarget.clone();
+    currentLook.lerp(lookTarget, CAM_LOOK_LERP);
+    camera.userData.look = currentLook;
+    camera.lookAt(currentLook);
+
+    renderer.render(scene, camera);
+  }
+
+  function lerpAngle(a,b,t){
+    let diff = ((b-a+Math.PI) % (Math.PI*2)) - Math.PI;
+    if(diff < -Math.PI) diff += Math.PI*2;
+    return a + diff*t;
+  }
+
+  tick();
+
+  /* Show touch joystick automatically on touch devices as a safety-net control
+     alongside gyroscope (in case gyro permission is denied or unsupported). */
+  if('ontouchstart' in window){
+    showJoystick();
+  }
+
+})();
 </script>
 </body>
 </html>
